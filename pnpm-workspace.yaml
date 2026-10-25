@@ -1,0 +1,6 @@
+# Folders that contain JS projects managed by pnpm
+packages:
+  - platform
+  - admin
+  - tracking-plan
+  - packages/*
