@@ -1,0 +1,35 @@
+# Secrets: keys, passwords, service account files
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+
+# Node.js / pnpm
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Next.js
+.next/
+out/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+
+# Local Docker data and backups
+infra/data/
+backups/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
