@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// One private Ed25519 key in JWK format.
+// looseObject keeps extra fields such as "alg" and "use".
+const signingKeySchema = z.looseObject({
+  kty: z.literal('OKP'),
+  crv: z.literal('Ed25519'),
+  x: z.string(), // public part
+  d: z.string(), // private part
+  kid: z.string().min(1),
+});
+
 // Schema of every environment variable the server reads.
 // Validated once at startup; the rest of the code imports `config`.
 const envSchema = z.object({
@@ -9,7 +19,30 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
+  // Connection string, e.g. postgres://user:password@host:5432/db
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+
+  // Value of the "iss" claim in access tokens
+  JWT_ISSUER: z.string().min(1).default('apps-platform'),
+  // Base64url-encoded JSON array of private keys; the first one signs.
+  // Generate with: pnpm keys:generate
+  JWT_SIGNING_KEYS: z
+    .string()
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+      } catch {
+        ctx.issues.push({
+          code: 'custom',
+          message: 'must be base64url-encoded JSON',
+          input: value,
+        });
+        return z.NEVER;
+      }
+    })
+    .pipe(z.array(signingKeySchema).min(1)),
+  ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(90),
 });
 
 export type Config = z.infer<typeof envSchema>;

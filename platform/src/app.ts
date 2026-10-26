@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { config } from './core/config.js';
 import { pool, isDatabaseReachable } from './core/db.js';
+import { identityRoutes } from './modules/identity/routes.js';
 
 // Builds the Fastify instance with all plugins and routes.
 // Kept separate from server.ts so tests can build an app
@@ -32,6 +33,9 @@ export async function buildApp() {
 
     return { status: 'ok', database: 'ok' };
   });
+
+    // Feature modules
+  await app.register(identityRoutes);
 
   return app;
 }
