@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { config } from './core/config.js';
+import { pool, isDatabaseReachable } from './core/db.js';
 
 // Builds the Fastify instance with all plugins and routes.
 // Kept separate from server.ts so tests can build an app
@@ -15,9 +16,21 @@ export async function buildApp() {
     },
   });
 
-  // Liveness check for Docker and monitoring
-  app.get('/health', async () => {
-    return { status: 'ok' };
+  // Release database connections when the server shuts down
+  app.addHook('onClose', async () => {
+    await pool.end();
+  });
+
+  // Health check: the process is alive and the database answers.
+  // Responds 503 if the database is unreachable.
+  app.get('/health', async (_request, reply) => {
+    const databaseOk = await isDatabaseReachable();
+
+    if (!databaseOk) {
+      return reply.code(503).send({ status: 'degraded', database: 'unreachable' });
+    }
+
+    return { status: 'ok', database: 'ok' };
   });
 
   return app;
