@@ -9,3 +9,6 @@ export const primaryId = () =>
 // Creation time, set by the database, stored in UTC
 export const createdAt = () =>
   timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
+
+// Any other timestamp column, always timezone-aware (stored in UTC)
+export const tz = (name: string) => timestamp(name, { withTimezone: true });
