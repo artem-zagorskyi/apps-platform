@@ -15,6 +15,8 @@ export interface AccessTokenClaims {
 const [currentKey] = config.JWT_SIGNING_KEYS;
 if (!currentKey) throw new Error('JWT_SIGNING_KEYS is empty');
 
+// Resolved here, where TypeScript knows the key exists
+const currentKid = currentKey.kid;
 const signingKey = await importJWK(currentKey, 'EdDSA');
 
 // Public halves of all keys: everything except the private part "d"
@@ -24,7 +26,7 @@ const verificationKeys = createLocalJWKSet({ keys: publicJwks });
 
 export async function signAccessToken(claims: AccessTokenClaims): Promise<string> {
   return new SignJWT({ ins: claims.installationId, plt: claims.platform })
-    .setProtectedHeader({ alg: 'EdDSA', kid: currentKey.kid })
+    .setProtectedHeader({ alg: 'EdDSA', kid: currentKid })
     .setSubject(claims.userId)
     .setAudience(claims.appId)
     .setIssuer(config.JWT_ISSUER)

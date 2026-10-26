@@ -13,14 +13,13 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
 
-    // Output
-    "rootDir": "src",
-    "outDir": "dist",
-    "sourceMap": true,
+    // This config only type-checks; tsconfig.build.json emits
+    "noEmit": true,
 
     // Faster builds, allow importing JSON
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src"]
+  // Type-check everything: server code, tests, scripts and config files
+  "include": ["src", "test", "scripts", "*.ts"]
 }

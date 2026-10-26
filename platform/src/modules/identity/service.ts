@@ -123,24 +123,13 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
 
   const outcome = await db.transaction(async (tx): Promise<RefreshOutcome> => {
     // Lock the session row so two parallel refreshes cannot both rotate it
-    const [row] = await tx
-      .select({
-        session: sessions,
-        userStatus: users.status,
-        appId: installations.appId,
-        platform: installations.platform,
-        installationOwnerId: installations.userId,
-      })
+    const [session] = await tx
+      .select()
       .from(sessions)
-      .innerJoin(users, eq(users.id, sessions.userId))
-      .innerJoin(installations, eq(installations.id, sessions.installationId))
       .where(eq(sessions.tokenHash, tokenHash))
-      .for('update', { of: sessions });
+      .for('update');
 
-    if (!row) return reject('unknown_token');
-
-    const { session } = row;
-
+    if (!session) return reject('unknown_token');
     if (session.revokedAt) return reject(`revoked:${session.revokeReason}`);
 
     if (session.rotatedAt) {
@@ -174,9 +163,27 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
     }
 
     if (session.expiresAt <= now) return reject('expired');
-    if (row.userStatus !== 'active') return reject(`user_${row.userStatus}`);
+
+    // Current state of the owner and the device (read, no lock needed)
+    const [owner] = await tx
+      .select({ status: users.status })
+      .from(users)
+      .where(eq(users.id, session.userId));
+    const [installation] = await tx
+      .select({
+        appId: installations.appId,
+        platform: installations.platform,
+        ownerId: installations.userId,
+      })
+      .from(installations)
+      .where(eq(installations.id, session.installationId));
+
+    // Foreign keys guarantee both exist; this only satisfies the type checker
+    if (!owner || !installation) throw new Error('Session references missing rows');
+
+    if (owner.status !== 'active') return reject(`user_${owner.status}`);
     // After a merge or logout the device belongs to another user
-    if (row.installationOwnerId !== session.userId) return reject('installation_reassigned');
+    if (installation.ownerId !== session.userId) return reject('installation_reassigned');
 
     const next = generateRefreshToken();
     const refreshTokenExpiresAt = refreshExpiryFrom(now);
@@ -207,9 +214,9 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
     return {
       ok: true,
       userId: session.userId,
-      appId: row.appId,
+      appId: installation.appId,
       installationId: session.installationId,
-      platform: row.platform,
+      platform: installation.platform,
       refreshToken: next.token,
       refreshTokenExpiresAt,
     };

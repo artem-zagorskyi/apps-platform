@@ -5,7 +5,6 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import { config } from './core/config.js';
-import { isDatabaseReachable, pool } from './core/db.js';
 import { AppError } from './core/errors.js';
 import { identityRoutes } from './modules/identity/routes.js';
 
@@ -56,10 +55,6 @@ export async function buildApp() {
     return reply.code(500).send({ error: 'internal_error', message: 'Internal server error' });
   });
 
-  // Release database connections when the server shuts down
-  app.addHook('onClose', async () => {
-    await pool.end();
-  });
 
   // Health check: the process is alive and the database answers.
   // Responds 503 if the database is unreachable.

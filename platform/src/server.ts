@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { config } from './core/config.js';
+import { pool } from './core/db.js';
 
 const app = await buildApp();
 
@@ -9,6 +10,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {
     app.log.info({ signal }, 'shutting down');
     await app.close();
+    // The app does not own the database pool, so it is closed here
+    await pool.end();
     process.exit(0);
   });
 }
