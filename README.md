@@ -97,7 +97,7 @@ sdk/flutter/     Flutter SDK package
 tracking-plan/   Event schema and code generator
 packages/        Shared JS packages
 infra/           Docker Compose, Caddyfile, env template, backup scripts
-docs/            Architecture notes and decision records (docs/adr/)
+docs/            Architecture notes
 ```
 
 ## Deployment
@@ -148,7 +148,6 @@ Stages are switched by data volume, not by calendar.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `docs:`, `chore:`).
 - Work happens in feature branches, merged into `main`.
-- Major decisions are recorded as ADRs in `docs/adr/`.
 
 ## Getting started
 
