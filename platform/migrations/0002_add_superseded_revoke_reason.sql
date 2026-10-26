@@ -1,0 +1,1 @@
+ALTER TYPE "identity"."revoke_reason" ADD VALUE 'superseded' BEFORE 'merged';

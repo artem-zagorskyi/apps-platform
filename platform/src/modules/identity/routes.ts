@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { platformEnum } from '../apps/schema.js';
-import { signUpAnonymous } from './service.js';
+import { signUpAnonymous, refreshSession } from './service.js';
 import { publicJwks } from './tokens.js';
 
 const anonymousSignUpBody = z.object({
@@ -11,6 +11,10 @@ const anonymousSignUpBody = z.object({
   appVersion: z.string().min(1).max(32),
   appBuild: z.string().min(1).max(32),
   osVersion: z.string().min(1).max(64),
+});
+
+const refreshBody = z.object({
+  refreshToken: z.string().min(20).max(200),
 });
 
 const tokenPairResponse = z.object({
@@ -44,5 +48,18 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
       const tokens = await signUpAnonymous(request.body);
       return reply.code(201).send(tokens);
     },
+  );
+
+    // Exchange a refresh token for a new token pair
+  app.post(
+    '/v1/auth/refresh',
+    {
+      schema: {
+        body: refreshBody,
+        response: { 200: tokenPairResponse },
+      },
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
+    async (request) => refreshSession(request.body.refreshToken),
   );
 };

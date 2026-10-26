@@ -41,6 +41,7 @@ export const adTrackingEnum = identitySchema.enum('ad_tracking_status', [
 export const revokeReasonEnum = identitySchema.enum('revoke_reason', [
   'logout',
   'reuse_detected',
+  'superseded', // replaced after a retried refresh within the grace window
   'merged',
   'account_deleted',
   'admin',

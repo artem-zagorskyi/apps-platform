@@ -43,6 +43,9 @@ const envSchema = z.object({
     .pipe(z.array(signingKeySchema).min(1)),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(90),
+  // A rotated refresh token may be retried within this window
+  // (e.g. after a lost response) without revoking the family
+  REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).default(30),
 });
 
 export type Config = z.infer<typeof envSchema>;

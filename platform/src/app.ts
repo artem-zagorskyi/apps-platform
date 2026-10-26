@@ -33,6 +33,9 @@ export async function buildApp() {
   // One response format for every error: { error, message }
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof AppError) {
+      if (error.internalReason) {
+        request.log.warn({ code: error.code, reason: error.internalReason }, 'request rejected');
+      }
       return reply.code(error.statusCode).send({ error: error.code, message: error.message });
     }
 

@@ -15,6 +15,13 @@
       "when": 1793041215824,
       "tag": "0001_init_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793043725049,
+      "tag": "0002_add_superseded_revoke_reason",
+      "breakpoints": true
     }
   ]
 }

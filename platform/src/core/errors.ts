@@ -1,11 +1,13 @@
 // Expected error with an HTTP status and a stable machine-readable code.
-// Clients branch on `code`; `message` is for humans and logs.
+// Clients branch on `code`; `message` is for humans.
+// `internalReason` is logged on the server and never sent to the client.
 // Anything else thrown is treated as an internal error.
 export class AppError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly code: string,
     message: string,
+    public readonly internalReason?: string,
   ) {
     super(message);
     this.name = 'AppError';
