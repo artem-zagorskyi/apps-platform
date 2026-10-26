@@ -83,3 +83,6 @@ export const consentPolicies = appsSchema.table(
   },
   (t) => [unique().on(t.appId, t.region)],
 );
+
+// 'android' | 'ios', derived from the enum so both always match
+export type Platform = (typeof platformEnum.enumValues)[number];

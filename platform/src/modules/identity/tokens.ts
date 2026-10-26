@@ -1,9 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createLocalJWKSet, importJWK, jwtVerify, SignJWT } from 'jose';
 import { config } from '../../core/config.js';
-import type { platformEnum } from '../apps/schema.js';
-
-type Platform = (typeof platformEnum.enumValues)[number];
+import type { Platform } from '../apps/schema.js';
 
 // What every access token says about its holder
 export interface AccessTokenClaims {
