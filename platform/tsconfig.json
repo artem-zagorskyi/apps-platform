@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    // Node 24 supports modern JavaScript, no need to downlevel
+    "target": "ES2024",
+
+    // Native Node ES modules; relative imports need the .js extension
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+
+    // Strictest useful checks
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    // Output
+    "rootDir": "src",
+    "outDir": "dist",
+    "sourceMap": true,
+
+    // Faster builds, allow importing JSON
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src"]
+}

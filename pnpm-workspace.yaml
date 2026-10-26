@@ -4,3 +4,5 @@ packages:
   - admin
   - tracking-plan
   - packages/*
+allowBuilds:
+  esbuild: false
