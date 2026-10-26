@@ -1,0 +1,335 @@
+{
+  "id": "c7eed21c-6272-46b4-af07-03b9c0dc9df0",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "apps.app_platforms": {
+      "name": "app_platforms",
+      "schema": "apps",
+      "columns": {
+        "app_id": {
+          "name": "app_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "apps",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bundle_id": {
+          "name": "bundle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "app_platforms_app_id_apps_id_fk": {
+          "name": "app_platforms_app_id_apps_id_fk",
+          "tableFrom": "app_platforms",
+          "tableTo": "apps",
+          "schemaTo": "apps",
+          "columnsFrom": [
+            "app_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "app_platforms_app_id_platform_pk": {
+          "name": "app_platforms_app_id_platform_pk",
+          "columns": [
+            "app_id",
+            "platform"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "apps.apps": {
+      "name": "apps",
+      "schema": "apps",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "app_status",
+          "typeSchema": "apps",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "apps_slug_unique": {
+          "name": "apps_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "apps.consent_policies": {
+      "name": "consent_policies",
+      "schema": "apps",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "app_id": {
+          "name": "app_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mode": {
+          "name": "mode",
+          "type": "consent_mode",
+          "typeSchema": "apps",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "policy_version": {
+          "name": "policy_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reprompt_after_days": {
+          "name": "reprompt_after_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 180
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "consent_policies_app_id_apps_id_fk": {
+          "name": "consent_policies_app_id_apps_id_fk",
+          "tableFrom": "consent_policies",
+          "tableTo": "apps",
+          "schemaTo": "apps",
+          "columnsFrom": [
+            "app_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "consent_policies_app_id_region_unique": {
+          "name": "consent_policies_app_id_region_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "app_id",
+            "region"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "apps.oauth_clients": {
+      "name": "oauth_clients",
+      "schema": "apps",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "app_id": {
+          "name": "app_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "apps",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "auth_provider",
+          "typeSchema": "apps",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "oauth_clients_app_id_platform_app_platforms_app_id_platform_fk": {
+          "name": "oauth_clients_app_id_platform_app_platforms_app_id_platform_fk",
+          "tableFrom": "oauth_clients",
+          "tableTo": "app_platforms",
+          "schemaTo": "apps",
+          "columnsFrom": [
+            "app_id",
+            "platform"
+          ],
+          "columnsTo": [
+            "app_id",
+            "platform"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "oauth_clients_app_id_provider_client_id_unique": {
+          "name": "oauth_clients_app_id_provider_client_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "app_id",
+            "provider",
+            "client_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "apps.app_status": {
+      "name": "app_status",
+      "schema": "apps",
+      "values": [
+        "active",
+        "disabled"
+      ]
+    },
+    "apps.auth_provider": {
+      "name": "auth_provider",
+      "schema": "apps",
+      "values": [
+        "google",
+        "apple"
+      ]
+    },
+    "apps.consent_mode": {
+      "name": "consent_mode",
+      "schema": "apps",
+      "values": [
+        "none",
+        "optional",
+        "consent_or_pay"
+      ]
+    },
+    "apps.platform": {
+      "name": "platform",
+      "schema": "apps",
+      "values": [
+        "android",
+        "ios"
+      ]
+    }
+  },
+  "schemas": {
+    "apps": "apps"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
