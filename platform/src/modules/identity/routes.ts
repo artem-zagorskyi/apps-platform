@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { authProviderEnum, platformEnum } from '../apps/schema.js';
 import { authOf, requireAuth } from './auth.js';
+import { issueNonce } from './nonce.js';
 import { getMe, logout, refreshSession, signUpAnonymous } from './service.js';
 import { publicJwks } from './tokens.js';
 
@@ -24,6 +25,11 @@ const tokenPairResponse = z.object({
   accessTokenExpiresIn: z.number().int(),
   refreshToken: z.string(),
   refreshTokenExpiresAt: z.iso.datetime(),
+});
+
+const nonceResponse = z.object({
+  nonce: z.string(),
+  expiresAt: z.iso.datetime(),
 });
 
 const meResponse = z.object({
@@ -76,6 +82,17 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request) => refreshSession(request.body.refreshToken),
+  );
+
+  // One-time nonce for Google / Apple sign-in on this installation
+  app.post(
+    '/v1/auth/nonce',
+    {
+      preHandler: requireAuth,
+      schema: { response: { 200: nonceResponse } },
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (request) => issueNonce(authOf(request).installationId),
   );
 
   // Sign out on this device; returns tokens of a fresh anonymous user

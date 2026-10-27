@@ -22,6 +22,13 @@
       "when": 1793043725049,
       "tag": "0002_add_superseded_revoke_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793096558122,
+      "tag": "0003_add_auth_nonces",
+      "breakpoints": true
     }
   ]
 }

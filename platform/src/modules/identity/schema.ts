@@ -295,3 +295,22 @@ export const consents = identitySchema.table(
     index('consents_user_purpose_idx').on(t.userId, t.purpose, t.createdAt.desc()),
   ],
 );
+
+// One-time numbers bound to an installation. Google and Apple embed them
+// into their ID tokens, so a stolen token cannot be replayed elsewhere.
+export const authNonces = identitySchema.table(
+  'auth_nonces',
+  {
+    id: primaryId(),
+    installationId: uuid('installation_id')
+      .notNull()
+      .references(() => installations.id),
+    // SHA-256 (hex) of the nonce; the nonce itself is known only to the client.
+    // Apple tokens carry exactly this hash, Google tokens carry the raw nonce.
+    nonceHash: text('nonce_hash').notNull().unique(),
+    createdAt: createdAt(),
+    expiresAt: tz('expires_at').notNull(),
+    usedAt: tz('used_at'),
+  },
+  (t) => [index('auth_nonces_installation_id_idx').on(t.installationId)],
+);
