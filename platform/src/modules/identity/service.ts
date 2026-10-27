@@ -5,8 +5,9 @@ import { db } from '../../core/db.js';
 import { AppError, isUniqueViolation } from '../../core/errors.js';
 import type { Platform } from '../apps/schema.js';
 import { isAppPlatformActive } from '../apps/service.js';
-import { installations, sessions, users } from './schema.js';
+import { authIdentities, installations, sessions, users } from './schema.js';
 import {
+  type AccessTokenClaims,
   generateRefreshToken,
   hashRefreshToken,
   signAccessToken,
@@ -240,5 +241,41 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
     accessTokenExpiresIn: config.ACCESS_TOKEN_TTL_SECONDS,
     refreshToken: outcome.refreshToken,
     refreshTokenExpiresAt: outcome.refreshTokenExpiresAt.toISOString(),
+  };
+}
+
+export interface Me {
+  userId: string;
+  appId: string;
+  installationId: string;
+  platform: Platform;
+  createdAt: string; // ISO 8601
+  providers: { provider: 'google' | 'apple'; email: string | null }[];
+}
+
+// Current user. Checks the database, so a deleted or merged user
+// is rejected even while their access token has not expired yet.
+export async function getMe(auth: AccessTokenClaims): Promise<Me> {
+  const [user] = await db
+    .select({ status: users.status, createdAt: users.createdAt })
+    .from(users)
+    .where(and(eq(users.id, auth.userId), eq(users.appId, auth.appId)));
+
+  if (!user || user.status !== 'active') {
+    throw new AppError(401, 'unauthorized', 'Account is no longer active', `user_${user?.status ?? 'missing'}`);
+  }
+
+  const providers = await db
+    .select({ provider: authIdentities.provider, email: authIdentities.email })
+    .from(authIdentities)
+    .where(eq(authIdentities.userId, auth.userId));
+
+  return {
+    userId: auth.userId,
+    appId: auth.appId,
+    installationId: auth.installationId,
+    platform: auth.platform,
+    createdAt: user.createdAt.toISOString(),
+    providers,
   };
 }

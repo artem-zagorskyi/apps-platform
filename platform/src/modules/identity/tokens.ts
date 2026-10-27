@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createLocalJWKSet, importJWK, jwtVerify, SignJWT } from 'jose';
 import { config } from '../../core/config.js';
-import type { Platform } from '../apps/schema.js';
+import { z } from 'zod';
+import { platformEnum, type Platform } from '../apps/schema.js';
 
 // What every access token says about its holder
 export interface AccessTokenClaims {
@@ -10,6 +11,14 @@ export interface AccessTokenClaims {
   installationId: string; // "ins"
   platform: Platform; // "plt"
 }
+
+// Expected shape of the access token payload
+const accessClaimsSchema = z.object({
+  sub: z.uuid(),
+  aud: z.uuid(),
+  ins: z.uuid(),
+  plt: z.enum(platformEnum.enumValues),
+});
 
 // The first key signs new tokens; all keys are published for verification
 const [currentKey] = config.JWT_SIGNING_KEYS;
@@ -35,7 +44,7 @@ export async function signAccessToken(claims: AccessTokenClaims): Promise<string
     .sign(signingKey);
 }
 
-// Throws if the signature, issuer, audience or expiry is invalid
+// Throws if the signature, issuer, audience, expiry or claims are invalid
 export async function verifyAccessToken(
   token: string,
   appId?: string,
@@ -46,11 +55,13 @@ export async function verifyAccessToken(
     ...(appId && { audience: appId }),
   });
 
+  const claims = accessClaimsSchema.parse(payload);
+
   return {
-    userId: payload.sub as string,
-    appId: payload.aud as string,
-    installationId: payload.ins as string,
-    platform: payload.plt as Platform,
+    userId: claims.sub,
+    appId: claims.aud,
+    installationId: claims.ins,
+    platform: claims.plt,
   };
 }
 

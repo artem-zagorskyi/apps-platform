@@ -1,8 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { platformEnum } from '../apps/schema.js';
-import { signUpAnonymous, refreshSession } from './service.js';
+import { authProviderEnum, platformEnum } from '../apps/schema.js';
+import { getMe, refreshSession, signUpAnonymous } from './service.js';
 import { publicJwks } from './tokens.js';
+import { authOf, requireAuth } from './auth.js';
+
 
 const anonymousSignUpBody = z.object({
   appId: z.uuid(),
@@ -15,6 +17,20 @@ const anonymousSignUpBody = z.object({
 
 const refreshBody = z.object({
   refreshToken: z.string().min(20).max(200),
+});
+
+const meResponse = z.object({
+  userId: z.uuid(),
+  appId: z.uuid(),
+  installationId: z.uuid(),
+  platform: z.enum(platformEnum.enumValues),
+  createdAt: z.iso.datetime(),
+  providers: z.array(
+    z.object({
+      provider: z.enum(authProviderEnum.enumValues),
+      email: z.string().nullable(),
+    }),
+  ),
 });
 
 const tokenPairResponse = z.object({
@@ -61,5 +77,15 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request) => refreshSession(request.body.refreshToken),
+  );
+
+  // The current user: id, device, linked sign-in methods
+  app.get(
+    '/v1/me',
+    {
+      preHandler: requireAuth,
+      schema: { response: { 200: meResponse } },
+    },
+    async (request) => getMe(authOf(request)),
   );
 };

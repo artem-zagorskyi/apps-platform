@@ -7,6 +7,7 @@ import {
 import { config } from './core/config.js';
 import { AppError } from './core/errors.js';
 import { identityRoutes } from './modules/identity/routes.js';
+import { isDatabaseReachable } from './core/db.js';
 
 // Builds the Fastify instance with all plugins and routes.
 // Kept separate from server.ts so tests can build an app
@@ -67,6 +68,9 @@ export async function buildApp() {
 
     return { status: 'ok', database: 'ok' };
   });
+
+  // Filled by requireAuth on protected routes
+  app.decorateRequest('auth', null);
 
   // Feature modules
   await app.register(identityRoutes);
