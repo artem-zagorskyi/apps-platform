@@ -110,6 +110,24 @@ describe('POST /v1/auth/google', () => {
     expect(res.json().result).toBe('already_linked');
   });
 
+    it('keeps the stored email when the provider omits it', async () => {
+    const device = await deviceWithGoogle('g-1');
+    const idToken = await signFakeGoogleToken({
+      subject: 'g-1',
+      nonce: await newNonce(device),
+      claims: { email: undefined, email_verified: undefined },
+    });
+
+    await postGoogle(device, idToken);
+
+    const [link] = await db
+      .select()
+      .from(authIdentities)
+      .where(eq(authIdentities.userId, device.userId));
+    expect(link?.email).toBe('player@gmail.com');
+    expect(link?.emailVerified).toBe(true);
+  });
+
   it('rejects a nonce that was not issued to this device', async () => {
     const device = await signUpViaApi(server, appId);
     const idToken = await signFakeGoogleToken({ subject: 'g-1', nonce: randomUUID() });

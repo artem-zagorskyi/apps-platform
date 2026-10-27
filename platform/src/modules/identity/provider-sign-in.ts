@@ -50,9 +50,13 @@ export async function signInWithProvider(
 ): Promise<ProviderSignInResult> {
   const now = new Date();
   const providerFields = {
-    email: identity.email,
-    emailVerified: identity.emailVerified,
-    emailIsPrivateRelay: identity.emailIsPrivateRelay,
+    // Apple may omit the email after the first sign-in:
+    // update email details only when the provider sent them
+    ...(identity.email !== null && {
+      email: identity.email,
+      emailVerified: identity.emailVerified,
+      emailIsPrivateRelay: identity.emailIsPrivateRelay,
+    }),
     lastUsedAt: now,
   };
 
