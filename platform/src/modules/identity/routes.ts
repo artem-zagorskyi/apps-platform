@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { authProviderEnum, platformEnum } from '../apps/schema.js';
 import { authOf, requireAuth } from './auth.js';
 import { issueNonce } from './nonce.js';
+import { signInWithGoogle } from './provider-sign-in.js';
+import { mergeStrategyEnum } from './schema.js';
 import { getMe, logout, refreshSession, signUpAnonymous } from './service.js';
 import { publicJwks } from './tokens.js';
 
@@ -19,12 +21,24 @@ const refreshBody = z.object({
   refreshToken: z.string().min(20).max(200),
 });
 
+const googleSignInBody = z.object({
+  idToken: z.string().min(1).max(4096),
+  // Omitted on the first attempt; set when retrying after 409 account_exists
+  mergeStrategy: z.enum(mergeStrategyEnum.enumValues).optional(),
+});
+
 const tokenPairResponse = z.object({
   userId: z.uuid(),
   accessToken: z.string(),
   accessTokenExpiresIn: z.number().int(),
   refreshToken: z.string(),
   refreshTokenExpiresAt: z.iso.datetime(),
+});
+
+const providerSignInResponse = z.object({
+  result: z.enum(['linked', 'already_linked', 'signed_in']),
+  userId: z.uuid(),
+  tokens: tokenPairResponse.nullable(),
 });
 
 const nonceResponse = z.object({
@@ -93,6 +107,21 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request) => issueNonce(authOf(request).installationId),
+  );
+
+  // Link a Google account, or sign this device into the user who owns it
+  app.post(
+    '/v1/auth/google',
+    {
+      preHandler: requireAuth,
+      schema: {
+        body: googleSignInBody,
+        response: { 200: providerSignInResponse },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request) =>
+      signInWithGoogle(authOf(request), request.body.idToken, request.body.mergeStrategy),
   );
 
   // Sign out on this device; returns tokens of a fresh anonymous user

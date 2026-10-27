@@ -40,7 +40,7 @@ export interface Me {
 }
 
 // A refresh token handed to the client together with its expiry
-interface IssuedRefresh {
+export interface IssuedRefresh {
   refreshToken: string;
   refreshTokenExpiresAt: Date;
 }
@@ -52,7 +52,7 @@ function refreshExpiryFrom(now: Date): Date {
 }
 
 // Starts a new token family for a user on a device
-async function insertSession(
+export async function insertSession(
   tx: Tx,
   userId: string,
   installationId: string,
@@ -73,7 +73,7 @@ async function insertSession(
 }
 
 // Signs an access token and assembles the response of every auth endpoint
-async function issueTokenPair(
+export async function issueTokenPair(
   claims: AccessTokenClaims,
   refresh: IssuedRefresh,
 ): Promise<TokenPair> {
