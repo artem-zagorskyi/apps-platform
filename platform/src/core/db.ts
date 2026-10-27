@@ -29,3 +29,6 @@ export async function isDatabaseReachable(): Promise<boolean> {
     return false;
   }
 }
+
+// Transaction handle passed to db.transaction callbacks
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

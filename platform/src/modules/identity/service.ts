@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { config } from '../../core/config.js';
-import { db } from '../../core/db.js';
+import { db, type Tx } from '../../core/db.js';
 import { AppError, isUniqueViolation } from '../../core/errors.js';
 import type { Platform } from '../apps/schema.js';
 import { isAppPlatformActive } from '../apps/service.js';
@@ -30,10 +30,60 @@ export interface TokenPair {
   refreshTokenExpiresAt: string; // ISO 8601
 }
 
+export interface Me {
+  userId: string;
+  appId: string;
+  installationId: string;
+  platform: Platform;
+  createdAt: string; // ISO 8601
+  providers: { provider: 'google' | 'apple'; email: string | null }[];
+}
+
+// A refresh token handed to the client together with its expiry
+interface IssuedRefresh {
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function refreshExpiryFrom(now: Date): Date {
   return new Date(now.getTime() + config.REFRESH_TOKEN_TTL_DAYS * DAY_MS);
+}
+
+// Starts a new token family for a user on a device
+async function insertSession(
+  tx: Tx,
+  userId: string,
+  installationId: string,
+  now = new Date(),
+): Promise<IssuedRefresh> {
+  const refresh = generateRefreshToken();
+  const refreshTokenExpiresAt = refreshExpiryFrom(now);
+
+  await tx.insert(sessions).values({
+    userId,
+    installationId,
+    familyId: randomUUID(),
+    tokenHash: refresh.hash,
+    expiresAt: refreshTokenExpiresAt,
+  });
+
+  return { refreshToken: refresh.token, refreshTokenExpiresAt };
+}
+
+// Signs an access token and assembles the response of every auth endpoint
+async function issueTokenPair(
+  claims: AccessTokenClaims,
+  refresh: IssuedRefresh,
+): Promise<TokenPair> {
+  return {
+    userId: claims.userId,
+    accessToken: await signAccessToken(claims),
+    accessTokenExpiresIn: config.ACCESS_TOKEN_TTL_SECONDS,
+    refreshToken: refresh.refreshToken,
+    refreshTokenExpiresAt: refresh.refreshTokenExpiresAt.toISOString(),
+  };
 }
 
 // First launch: create a user, the installation and a session in one transaction
@@ -42,13 +92,10 @@ export async function signUpAnonymous(input: AnonymousSignUpInput): Promise<Toke
     throw new AppError(400, 'unknown_app', 'App is unknown, disabled or not available on this platform');
   }
 
-  const refresh = generateRefreshToken();
-  const refreshTokenExpiresAt = refreshExpiryFrom(new Date());
-
-  let userId: string;
+  let result: { userId: string; refresh: IssuedRefresh };
 
   try {
-    userId = await db.transaction(async (tx) => {
+    result = await db.transaction(async (tx) => {
       const [user] = await tx
         .insert(users)
         .values({ appId: input.appId })
@@ -65,15 +112,8 @@ export async function signUpAnonymous(input: AnonymousSignUpInput): Promise<Toke
         osVersion: input.osVersion,
       });
 
-      await tx.insert(sessions).values({
-        userId: user.id,
-        installationId: input.installationId,
-        familyId: randomUUID(), // a new sign-in starts a new token family
-        tokenHash: refresh.hash,
-        expiresAt: refreshTokenExpiresAt,
-      });
-
-      return user.id;
+      const refresh = await insertSession(tx, user.id, input.installationId);
+      return { userId: user.id, refresh };
     });
   } catch (err) {
     // Installation ids are not secrets, so an existing one never gets tokens.
@@ -84,32 +124,19 @@ export async function signUpAnonymous(input: AnonymousSignUpInput): Promise<Toke
     throw err;
   }
 
-  const accessToken = await signAccessToken({
-    userId,
-    appId: input.appId,
-    installationId: input.installationId,
-    platform: input.platform,
-  });
-
-  return {
-    userId,
-    accessToken,
-    accessTokenExpiresIn: config.ACCESS_TOKEN_TTL_SECONDS,
-    refreshToken: refresh.token,
-    refreshTokenExpiresAt: refreshTokenExpiresAt.toISOString(),
-  };
+  return issueTokenPair(
+    {
+      userId: result.userId,
+      appId: input.appId,
+      installationId: input.installationId,
+      platform: input.platform,
+    },
+    result.refresh,
+  );
 }
 
 type RefreshOutcome =
-  | {
-      ok: true;
-      userId: string;
-      appId: string;
-      installationId: string;
-      platform: Platform;
-      refreshToken: string;
-      refreshTokenExpiresAt: Date;
-    }
+  | { ok: true; claims: AccessTokenClaims; refresh: IssuedRefresh }
   | { ok: false; reason: string };
 
 const reject = (reason: string): RefreshOutcome => ({ ok: false, reason });
@@ -186,6 +213,7 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
     // After a merge or logout the device belongs to another user
     if (installation.ownerId !== session.userId) return reject('installation_reassigned');
 
+    // Same family: rotation continues the chain started at sign-in
     const next = generateRefreshToken();
     const refreshTokenExpiresAt = refreshExpiryFrom(now);
 
@@ -214,12 +242,13 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
 
     return {
       ok: true,
-      userId: session.userId,
-      appId: installation.appId,
-      installationId: session.installationId,
-      platform: installation.platform,
-      refreshToken: next.token,
-      refreshTokenExpiresAt,
+      claims: {
+        userId: session.userId,
+        appId: installation.appId,
+        installationId: session.installationId,
+        platform: installation.platform,
+      },
+      refresh: { refreshToken: next.token, refreshTokenExpiresAt },
     };
   });
 
@@ -228,29 +257,76 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
     throw new AppError(401, 'invalid_refresh_token', 'Refresh token is invalid or expired', outcome.reason);
   }
 
-  const accessToken = await signAccessToken({
-    userId: outcome.userId,
-    appId: outcome.appId,
-    installationId: outcome.installationId,
-    platform: outcome.platform,
-  });
-
-  return {
-    userId: outcome.userId,
-    accessToken,
-    accessTokenExpiresIn: config.ACCESS_TOKEN_TTL_SECONDS,
-    refreshToken: outcome.refreshToken,
-    refreshTokenExpiresAt: outcome.refreshTokenExpiresAt.toISOString(),
-  };
+  return issueTokenPair(outcome.claims, outcome.refresh);
 }
 
-export interface Me {
-  userId: string;
-  appId: string;
-  installationId: string;
-  platform: Platform;
-  createdAt: string; // ISO 8601
-  providers: { provider: 'google' | 'apple'; email: string | null }[];
+// Sign out on this device: revoke its sessions and hand the device
+// to a fresh anonymous user, so the next person starts clean.
+// Only users with a linked account may sign out: an anonymous user
+// would lose their progress with no way to sign back in.
+export async function logout(auth: AccessTokenClaims): Promise<TokenPair> {
+  const now = new Date();
+
+  const result = await db.transaction(async (tx) => {
+    // Lock the device so parallel logouts or merges cannot both reassign it
+    const [installation] = await tx
+      .select({ ownerId: installations.userId })
+      .from(installations)
+      .where(eq(installations.id, auth.installationId))
+      .for('update');
+
+    if (!installation || installation.ownerId !== auth.userId) {
+      throw new AppError(401, 'unauthorized', 'Device no longer belongs to this user', 'installation_reassigned');
+    }
+
+    const [owner] = await tx
+      .select({ status: users.status })
+      .from(users)
+      .where(eq(users.id, auth.userId));
+
+    if (owner?.status !== 'active') {
+      throw new AppError(401, 'unauthorized', 'Account is no longer active', `user_${owner?.status ?? 'missing'}`);
+    }
+
+    const [linked] = await tx
+      .select({ id: authIdentities.id })
+      .from(authIdentities)
+      .where(eq(authIdentities.userId, auth.userId))
+      .limit(1);
+
+    if (!linked) {
+      throw new AppError(409, 'no_linked_account', 'Link a Google or Apple account before signing out');
+    }
+
+    // Every live session of this user on this device
+    await tx
+      .update(sessions)
+      .set({ revokedAt: now, revokeReason: 'logout' })
+      .where(
+        and(
+          eq(sessions.userId, auth.userId),
+          eq(sessions.installationId, auth.installationId),
+          isNull(sessions.revokedAt),
+        ),
+      );
+
+    const [newUser] = await tx
+      .insert(users)
+      .values({ appId: auth.appId })
+      .returning({ id: users.id });
+    if (!newUser) throw new Error('User insert returned no row');
+
+    // Same device, new owner: device history and data are preserved
+    await tx
+      .update(installations)
+      .set({ userId: newUser.id, updatedAt: now })
+      .where(eq(installations.id, auth.installationId));
+
+    const refresh = await insertSession(tx, newUser.id, auth.installationId, now);
+    return { userId: newUser.id, refresh };
+  });
+
+  return issueTokenPair({ ...auth, userId: result.userId }, result.refresh);
 }
 
 // Current user. Checks the database, so a deleted or merged user

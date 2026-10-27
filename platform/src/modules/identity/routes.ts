@@ -1,10 +1,9 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { authProviderEnum, platformEnum } from '../apps/schema.js';
-import { getMe, refreshSession, signUpAnonymous } from './service.js';
-import { publicJwks } from './tokens.js';
 import { authOf, requireAuth } from './auth.js';
-
+import { getMe, logout, refreshSession, signUpAnonymous } from './service.js';
+import { publicJwks } from './tokens.js';
 
 const anonymousSignUpBody = z.object({
   appId: z.uuid(),
@@ -19,6 +18,14 @@ const refreshBody = z.object({
   refreshToken: z.string().min(20).max(200),
 });
 
+const tokenPairResponse = z.object({
+  userId: z.uuid(),
+  accessToken: z.string(),
+  accessTokenExpiresIn: z.number().int(),
+  refreshToken: z.string(),
+  refreshTokenExpiresAt: z.iso.datetime(),
+});
+
 const meResponse = z.object({
   userId: z.uuid(),
   appId: z.uuid(),
@@ -31,14 +38,6 @@ const meResponse = z.object({
       email: z.string().nullable(),
     }),
   ),
-});
-
-const tokenPairResponse = z.object({
-  userId: z.uuid(),
-  accessToken: z.string(),
-  accessTokenExpiresIn: z.number().int(),
-  refreshToken: z.string(),
-  refreshTokenExpiresAt: z.iso.datetime(),
 });
 
 export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -66,7 +65,7 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   );
 
-    // Exchange a refresh token for a new token pair
+  // Exchange a refresh token for a new token pair
   app.post(
     '/v1/auth/refresh',
     {
@@ -79,7 +78,17 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => refreshSession(request.body.refreshToken),
   );
 
-  // The current user: id, device, linked sign-in methods
+  // Sign out on this device; returns tokens of a fresh anonymous user
+  app.post(
+    '/v1/auth/logout',
+    {
+      preHandler: requireAuth,
+      schema: { response: { 200: tokenPairResponse } },
+    },
+    async (request) => logout(authOf(request)),
+  );
+
+  // The current user: id, device and linked sign-in methods
   app.get(
     '/v1/me',
     {
