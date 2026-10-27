@@ -1,0 +1,9 @@
+# Same rules as the SDK package
+include: ../analysis_options.yaml
+
+analyzer:
+  # Generated and platform folders are not Dart sources we own
+  exclude:
+    - build/**
+    - android/**
+    - ios/**

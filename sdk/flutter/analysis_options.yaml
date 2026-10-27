@@ -1,0 +1,24 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  # Generated and platform folders are not Dart sources we own
+  exclude:
+    - build/**
+    - example/build/**
+    - example/android/**
+    - example/ios/**
+  language:
+    # No implicit casts from dynamic, no silently inferred dynamic types
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_dynamic_calls
+    - directives_ordering
+    - prefer_final_locals
+    - prefer_single_quotes
+    # A Future that is not awaited is a common source of lost errors
+    - unawaited_futures
