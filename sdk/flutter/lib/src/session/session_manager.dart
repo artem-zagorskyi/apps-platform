@@ -126,7 +126,7 @@ class SessionManager {
 
       try {
         await _renew();
-      } on RenvixException catch (e) {
+      } on AppPlatformException catch (e) {
         // Offline or server trouble: keep working, retry on the next request
         if (!_isTransient(e)) rethrow;
       }
@@ -189,7 +189,7 @@ class SessionManager {
     return id;
   }
 
-  static bool _isTransient(RenvixException e) =>
+  static bool _isTransient(AppPlatformException e) =>
       e is NetworkException || e is ServerException;
 
   // Single flight: concurrent callers share one renewal

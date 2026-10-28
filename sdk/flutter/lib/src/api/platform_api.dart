@@ -47,7 +47,7 @@ class PlatformApi {
   }
 
   // Sends a request and returns the decoded JSON object of a 2xx response.
-  // Every failure is turned into a RenvixException subtype.
+  // Every failure is turned into a AppPlatformException subtype.
   Future<Map<String, Object?>> _send(
     String method,
     String path, {

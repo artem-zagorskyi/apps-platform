@@ -42,7 +42,7 @@ void main() {
   });
 
   test('treats an unreadable session as missing', () async {
-    await raw.write('renvix.session', '{"userId": 42}');
+    await raw.write('app_platform.session', '{"userId": 42}');
 
     expect(await store.readSession(), isNull);
   });

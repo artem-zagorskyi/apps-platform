@@ -69,7 +69,7 @@ class StoredSession {
 
 /// What the SDK keeps on the device between launches.
 class SessionStore {
-  SessionStore(this._store, {String keyPrefix = 'renvix'})
+  SessionStore(this._store, {String keyPrefix = 'app_platform'})
       : _installationKey = '$keyPrefix.installation_id',
         _sessionKey = '$keyPrefix.session';
 

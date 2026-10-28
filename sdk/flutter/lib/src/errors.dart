@@ -1,7 +1,7 @@
 /// Base class of every error thrown by the SDK.
 /// Sealed: a `switch` over it must handle every subtype.
-sealed class RenvixException implements Exception {
-  const RenvixException(this.message);
+sealed class AppPlatformException implements Exception {
+  const AppPlatformException(this.message);
 
   final String message;
 
@@ -11,7 +11,7 @@ sealed class RenvixException implements Exception {
 
 /// The server rejected the request with a known error code.
 /// Branch on [code]; see [ApiErrorCode].
-final class ApiException extends RenvixException {
+final class ApiException extends AppPlatformException {
   const ApiException({
     required this.statusCode,
     required this.code,
@@ -27,7 +27,7 @@ final class ApiException extends RenvixException {
 
 /// The server failed, is overloaded or rate limited the client.
 /// The request may succeed later.
-final class ServerException extends RenvixException {
+final class ServerException extends AppPlatformException {
   const ServerException({required this.statusCode, required String message})
       : super(message);
 
@@ -39,7 +39,7 @@ final class ServerException extends RenvixException {
 
 /// No response at all: offline, DNS failure, timeout.
 /// The request may succeed later.
-final class NetworkException extends RenvixException {
+final class NetworkException extends AppPlatformException {
   const NetworkException(super.message, {this.cause});
 
   final Object? cause;
