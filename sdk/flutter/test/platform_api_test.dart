@@ -1,0 +1,136 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:renvix_sdk/renvix_sdk.dart';
+import 'package:renvix_sdk/src/api/models.dart';
+import 'package:renvix_sdk/src/api/platform_api.dart';
+
+const _tokenPairJson = {
+  'userId': 'user-1',
+  'accessToken': 'access-1',
+  'accessTokenExpiresIn': 900,
+  'refreshToken': 'refresh-1',
+  'refreshTokenExpiresAt': '2027-01-24T19:29:34.737Z',
+};
+
+http.Response _json(Object body, int status) => http.Response(
+      jsonEncode(body),
+      status,
+      headers: {'content-type': 'application/json'},
+    );
+
+PlatformApi _api(
+  MockClientHandler handler, {
+  String baseUrl = 'http://10.0.2.2:3000',
+  Duration timeout = const Duration(seconds: 5),
+}) {
+  return PlatformApi(
+    baseUri: Uri.parse(baseUrl),
+    client: MockClient(handler),
+    timeout: timeout,
+  );
+}
+
+Future<TokenPair> _signUp(PlatformApi api) => api.signUpAnonymous(
+      appId: 'app-1',
+      installationId: 'install-1',
+      platform: DevicePlatform.android,
+      appVersion: '1.0.0',
+      appBuild: '1',
+      osVersion: '17',
+    );
+
+void main() {
+  test('sends the sign-up request and parses the token pair', () async {
+    late http.Request sent;
+    final api = _api((request) async {
+      sent = request;
+      return _json(_tokenPairJson, 201);
+    });
+
+    final tokens = await _signUp(api);
+
+    expect(sent.method, 'POST');
+    expect(sent.url.toString(), 'http://10.0.2.2:3000/v1/auth/anonymous');
+    expect(sent.headers['content-type'], startsWith('application/json'));
+    expect(jsonDecode(sent.body), {
+      'appId': 'app-1',
+      'installationId': 'install-1',
+      'platform': 'android',
+      'appVersion': '1.0.0',
+      'appBuild': '1',
+      'osVersion': '17',
+    });
+
+    expect(tokens.userId, 'user-1');
+    expect(tokens.accessTokenExpiresIn, const Duration(minutes: 15));
+    expect(tokens.refreshTokenExpiresAt, DateTime.utc(2027, 1, 24, 19, 29, 34, 737));
+  });
+
+  test('keeps a path in the base URL', () async {
+    late Uri url;
+    final api = _api((request) async {
+      url = request.url;
+      return _json(_tokenPairJson, 200);
+    }, baseUrl: 'https://example.com/api/');
+
+    await api.refresh('refresh-1');
+
+    expect(url.toString(), 'https://example.com/api/v1/auth/refresh');
+  });
+
+  test('turns a 4xx error into ApiException with its code', () async {
+    final api = _api((_) async => _json({
+          'error': 'installation_exists',
+          'message': 'Installation id is already registered',
+        }, 409));
+
+    await expectLater(
+      _signUp(api),
+      throwsA(isA<ApiException>()
+          .having((e) => e.statusCode, 'statusCode', 409)
+          .having((e) => e.code, 'code', ApiErrorCode.installationExists)),
+    );
+  });
+
+  test('turns 5xx into ServerException, even without a JSON body', () async {
+    final api = _api((_) async => http.Response('Bad Gateway', 502));
+
+    await expectLater(
+      api.refresh('refresh-1'),
+      throwsA(isA<ServerException>().having((e) => e.statusCode, 'statusCode', 502)),
+    );
+  });
+
+  test('turns 429 into ServerException', () async {
+    final api = _api((_) async => _json({'error': 'too_many_requests', 'message': 'Slow down'}, 429));
+
+    await expectLater(api.refresh('refresh-1'), throwsA(isA<ServerException>()));
+  });
+
+  test('turns a connection failure into NetworkException', () async {
+    final api = _api((_) async => throw http.ClientException('Connection refused'));
+
+    await expectLater(api.refresh('refresh-1'), throwsA(isA<NetworkException>()));
+  });
+
+  test('turns a timeout into NetworkException', () async {
+    final api = _api(
+      (_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        return _json(_tokenPairJson, 200);
+      },
+      timeout: const Duration(milliseconds: 20),
+    );
+
+    await expectLater(api.refresh('refresh-1'), throwsA(isA<NetworkException>()));
+  });
+
+  test('turns a malformed success response into ServerException', () async {
+    final api = _api((_) async => _json({'userId': 42}, 200));
+
+    await expectLater(api.refresh('refresh-1'), throwsA(isA<ServerException>()));
+  });
+}
