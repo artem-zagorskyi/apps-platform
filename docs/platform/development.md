@@ -196,3 +196,32 @@ echo '<accessToken>' | cut -d. -f2 | base64 -d 2>/dev/null; echo
 
 Tokens and keys from a local setup may be shared for debugging. Never share
 anything from a production server.
+
+## Google sign-in (local)
+
+One Google Cloud project for development (`apps-platform-dev`), configured in
+**Google Auth Platform**:
+
+- Audience **External**, testing mode. Only accounts listed under
+  Audience → Test users can sign in.
+- **Web client**: its client ID is the token audience. It goes to
+  `GOOGLE_WEB_CLIENT_ID` in `platform/.env` (then `pnpm db:seed`) and to
+  `GOOGLE_SERVER_CLIENT_ID` in `sdk/flutter/example/dev.json`. The client
+  secret is not used anywhere.
+- **Android client**: package `com.renvix.renvix_sdk_example` and the SHA-1
+  of the debug key. Not written anywhere: Google matches it by package and
+  signature. Get the SHA-1 with `./gradlew signingReport` in
+  `sdk/flutter/example/android`.
+
+The emulator needs a Google account (Settings → Accounts) that is a test user.
+
+Release builds will need more Android clients: the upload key and the Play
+app signing key.
+
+Common failures:
+
+| Symptom | Cause |
+|---------|-------|
+| `credential_error` mentioning the developer console | Wrong SHA-1 or package, Android client ID used instead of the web one, or the client is not active yet |
+| `no_google_account` | No Google account on the device |
+| `invalid_provider_token` from the server | Web client ID not registered (`db:seed`); the server log has the reason |

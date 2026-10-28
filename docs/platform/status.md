@@ -63,6 +63,18 @@ Details: [identity.md](identity.md).
 | Trusted proxy for rate limits behind Caddy | Planned: with deployment |
 | Admin: register apps, platforms, OAuth clients | Planned (script for now: `pnpm db:seed`) |
 
+### Flutter SDK
+
+| Item | Status |
+|------|--------|
+| Secure storage, API client, typed errors | Done |
+| Session manager: start-up, offline mode, single-flight refresh, retry on 401, dead session reset | Done |
+| `AppPlatform` entry point, client info, `GET /v1/me` | Done |
+| Google sign-in on Android (Credential Manager, own Kotlin code), merge dialog | Done, verified on the emulator |
+| Logout | Planned |
+| Google / Apple sign-in on iOS | Deferred |
+| Demo app | Done: session, profile, Google sign-in |
+
 ## 2. Event tracking
 
 | Item | Status |
