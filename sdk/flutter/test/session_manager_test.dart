@@ -323,4 +323,45 @@ void main() {
       expect(calls, 1);
     });
   });
+
+    group('logout', () {
+    test('hands the device to a fresh anonymous user', () async {
+      final manager = createManager();
+      await manager.start();
+      await _flush();
+      api.onLogout = (_) async => api.issue('user-2');
+
+      await manager.logout();
+      await _flush();
+
+      expect(manager.userId, 'user-2');
+      // Same device: only the user changes
+      expect(manager.installationId, 'install-1');
+      expect((await store.readSession())?.userId, 'user-2');
+      expect(
+        changes.last,
+        isA<UserChange>()
+            .having((c) => c.reason, 'reason', UserChangeReason.loggedOut)
+            .having((c) => c.previousUserId, 'previousUserId', 'user-1'),
+      );
+    });
+
+    test('an anonymous user cannot sign out', () async {
+      final manager = createManager();
+      await manager.start();
+      await _flush();
+      api.onLogout = (_) async => throw const ApiException(
+            statusCode: 409,
+            code: ApiErrorCode.noLinkedAccount,
+            message: 'Link a Google or Apple account before signing out',
+          );
+
+      await expectLater(
+        manager.logout(),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', ApiErrorCode.noLinkedAccount)),
+      );
+      expect(manager.userId, 'user-1');
+      expect(changes.single.reason, UserChangeReason.signedUp);
+    });
+  });
 }

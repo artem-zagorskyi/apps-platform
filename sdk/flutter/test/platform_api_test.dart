@@ -168,4 +168,20 @@ void main() {
     expect(response.outcome, ProviderSignInOutcome.signedIn);
     expect(response.tokens?.userId, 'user-1');
   });
+
+    test('signs out without a body and parses the new token pair', () async {
+    late http.Request sent;
+    final api = _api((request) async {
+      sent = request;
+      return _json(_tokenPairJson, 200);
+    });
+
+    final tokens = await api.logout('access-1');
+
+    expect(sent.method, 'POST');
+    expect(sent.url.path, '/v1/auth/logout');
+    expect(sent.headers['authorization'], 'Bearer access-1');
+    expect(sent.headers.containsKey('content-type'), isFalse);
+    expect(tokens.userId, 'user-1');
+  });
 }

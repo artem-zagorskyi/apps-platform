@@ -66,9 +66,16 @@ class _DemoHomePageState extends State<DemoHomePage> {
           baseUrl: Uri.parse(_apiUrl),
           googleServerClientId: _googleServerClientId,
         );
-        _changes = platform.userChanges.listen((change) => _addLog('$change'));
+        _changes = platform.userChanges.listen(_onUserChange);
         setState(() => _platform = platform);
       });
+
+  // Another user now owns the device: drop everything of the previous one.
+  // A real app clears its local data and caches here.
+  void _onUserChange(UserChange change) {
+    _addLog('$change');
+    setState(() => _profile = null);
+  }
 
   Future<void> _ensureSession() => _run('session', () async {
         await _platform?.ensureSession();
@@ -93,6 +100,15 @@ class _DemoHomePageState extends State<DemoHomePage> {
           final profile = await platform.me();
           setState(() => _profile = profile);
         }
+      });
+
+  Future<void> _logout() => _run('logout', () async {
+        final platform = _platform;
+        if (platform == null) return;
+
+        await platform.logout();
+        final profile = await platform.me();
+        setState(() => _profile = profile);
       });
 
   // The demo always asks. A real app returns keepTarget without asking
@@ -211,6 +227,10 @@ class _DemoHomePageState extends State<DemoHomePage> {
               FilledButton.tonal(
                 onPressed: canAct && googleConfigured ? _signInWithGoogle : null,
                 child: const Text('Sign in with Google'),
+              ),
+              OutlinedButton(
+                onPressed: canAct ? _logout : null,
+                child: const Text('Sign out'),
               ),
             ],
           ),

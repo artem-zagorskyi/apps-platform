@@ -174,6 +174,14 @@ class SessionManager {
     }
   }
 
+  /// Signs out on this device. The device gets a fresh anonymous user.
+  /// Throws ApiException with code no_linked_account for an anonymous
+  /// user, who would lose the account: the app should offer linking.
+  Future<void> logout() async {
+    final tokens = await authorized(_api.logout);
+    await applyTokens(tokens, UserChangeReason.loggedOut);
+  }
+
   Future<void> dispose() => _changes.close();
 
   bool get _hasFreshAccessToken {

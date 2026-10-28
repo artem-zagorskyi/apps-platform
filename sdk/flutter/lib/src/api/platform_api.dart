@@ -68,6 +68,12 @@ class PlatformApi {
     return _parse(() => ProviderSignInResponse.fromJson(json));
   }
 
+    /// Signs out on this device; returns tokens of a fresh anonymous user
+  Future<TokenPair> logout(String accessToken) async {
+    final json = await _send('POST', '/v1/auth/logout', accessToken: accessToken);
+    return _parse(() => TokenPair.fromJson(json));
+  }
+
   // Sends a request and returns the decoded JSON object of a 2xx response.
   // Every failure is turned into a AppPlatformException subtype.
   Future<Map<String, Object?>> _send(

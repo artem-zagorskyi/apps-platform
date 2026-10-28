@@ -101,4 +101,13 @@ class FakeApi implements PlatformApi {
   // Not used in these tests; required by the interface
   @override
   Future<PlatformUser> getMe(String accessToken) => throw UnimplementedError();
+
+  Future<TokenPair> Function(String accessToken)? onLogout;
+
+  @override
+  Future<TokenPair> logout(String accessToken) async {
+    final handler = onLogout;
+    if (handler == null) throw StateError('Set onLogout in the test');
+    return handler(accessToken);
+  }
 }

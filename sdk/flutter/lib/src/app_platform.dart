@@ -124,6 +124,12 @@ class AppPlatform {
     return flow.signIn(resolveConflict: resolveConflict);
   }
 
+  /// Signs out on this device. The device gets a fresh anonymous user and
+  /// [userChanges] reports loggedOut: clear everything of the previous user.
+  /// Throws ApiException with code no_linked_account for an anonymous user,
+  /// who would lose the account: offer Google sign-in instead.
+  Future<void> logout() => _session.logout();
+
   static Future<ClientInfo> _collectClientInfo(String appId) async {
     final package = await PackageInfo.fromPlatform();
     final device = DeviceInfoPlugin();
