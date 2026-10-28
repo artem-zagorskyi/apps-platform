@@ -48,13 +48,28 @@ therefore offer "save progress with Google" at good moments.
 
 ## Start-up
 
-1. Read the installation id. If there is none, generate a UUID.
-2. If a refresh token is stored and not expired, refresh (see below).
-3. Otherwise call `POST /v1/auth/anonymous`.
-   - `409 installation_exists`: generate a new installation id, store it, retry.
-4. Store user id and tokens **before** doing anything else with them.
+`AppPlatform.init(appId, baseUrl)` collects the app and OS version and starts the
+session. It never fails because of the network and waits for the server at
+most 3 seconds; the rest continues in the background.
 
-The SDK must be usable while start-up is still running: calls wait for it.
+1. Read the installation id. If there is none, generate a UUID and store it
+   immediately, before any request: data collected offline is tied to it.
+2. If a session is stored, refresh it. Offline, the stored user id is used
+   and the refresh is retried on the next request.
+3. If no session is stored, sign up anonymously.
+   - `409 installation_exists`: retry with a new installation id (up to 3 times).
+   - Offline: `userId` stays null; sign-up is retried on the next request.
+     The app keeps working locally.
+4. Persist tokens **before** using them.
+
+Configuration errors (for example `400 unknown_app`) make `init` fail.
+
+`userChanges` reports switches after `init`. The user created during start-up
+is read from `userId` after `init`.
+
+An app that cannot work without the server (for example, all content comes
+from it) checks `userId` after `init` and asks the person to connect. This
+is the app's decision, not the SDK's.
 
 ## Authenticated requests
 
@@ -75,10 +90,13 @@ The SDK must be usable while start-up is still running: calls wait for it.
   grace window; after that the server treats it as stolen.
 - Network errors and `5xx`: keep the current tokens and retry later with
   backoff. Never discard a session because of a network problem.
-- `401 invalid_refresh_token`: the session is dead. Clear the stored session,
-  **generate a new installation id** (the old one still exists on the server
-  and would get `409`), sign up anonymously and emit a user change. If the
-  person had linked Google, they get their account back by signing in again.
+- `401 invalid_refresh_token` (or a refresh token expired on the device):
+  the session is dead. Sign up **first** with a new installation id (the old
+  one still exists on the server and would get `409`), then replace the
+  stored installation id and session and emit `sessionReset`. If sign-up
+  fails because the device is offline, nothing is replaced: the app keeps
+  the old user id until the next attempt. If the person had linked Google,
+  they get their account back by signing in again.
 
 ## Google sign-in
 

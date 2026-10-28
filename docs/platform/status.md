@@ -11,7 +11,7 @@ external dependency)
 | Area | Server | Flutter SDK | Admin |
 |------|--------|-------------|-------|
 | Foundation (config, DB, errors, tests) | Done | Planned | Planned |
-| 1. Identity | Partial | Planned | Planned |
+| 1. Identity | Partial | Partial | Planned |
 | 2. Event tracking | Planned | Planned | Planned |
 | 3. Offline-first sync | Planned | Planned | — |
 | 4. Remote config & A/B tests | Planned | Planned | Planned |
