@@ -13,7 +13,7 @@ import 'storage/session_store.dart';
 /// Entry point of the SDK. Call [AppPlatform.init] once at app start-up,
 /// then use the returned object or [AppPlatform.instance].
 class AppPlatform {
-  AppPlatform._(this._session, this._api);
+  AppPlatform._(this._session, this._api, this.clientInfo);
 
   /// How long init waits for the server. A stored session is available
   /// immediately; renewal or sign-up continues in the background.
@@ -24,6 +24,10 @@ class AppPlatform {
 
   final SessionManager _session;
   final PlatformApi _api;
+
+  /// App and device details collected by the SDK and sent to the server.
+  /// More details will be added only with analytics consent.
+  final ClientInfo clientInfo;
 
   /// The initialized SDK. Throws if [init] has not completed.
   static AppPlatform get instance {
@@ -45,17 +49,18 @@ class AppPlatform {
 
   static Future<AppPlatform> _create(String appId, Uri baseUrl, http.Client? httpClient) async {
     try {
+      final client = await _collectClientInfo(appId);
       final api = PlatformApi(baseUri: baseUrl, client: httpClient ?? http.Client());
       final session = SessionManager(
         api: api,
         store: SessionStore(SecureKeyValueStore()),
-        client: await _collectClientInfo(appId),
+        client: client,
       );
 
       // Do not hold the app on a slow network; the start continues in the background
       await session.start().timeout(_startupNetworkWait, onTimeout: () {});
 
-      return _instance = AppPlatform._(session, api);
+      return _instance = AppPlatform._(session, api, client);
     } catch (_) {
       _initializing = null;
       rethrow;

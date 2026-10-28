@@ -128,6 +128,24 @@ class _DemoHomePageState extends State<DemoHomePage> {
             ),
             _Field('Created', profile.createdAt.toLocal().toString()),
           ],
+          if (platform != null) ...[
+            const Divider(height: 32),
+            Text(
+              'Collected on this device',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            _Field('Platform', platform.clientInfo.platform.name),
+            _Field(
+              'App',
+              '${platform.clientInfo.appVersion} (build ${platform.clientInfo.appBuild})',
+            ),
+            _Field('OS', platform.clientInfo.osVersion),
+            const Text(
+              'More device details will be collected only with analytics consent.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
