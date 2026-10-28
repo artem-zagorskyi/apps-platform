@@ -153,8 +153,9 @@ otherwise all users share one IP and one rate limit bucket.
   valid consent under GDPR.
 - Device details beyond app/OS version are collected only with analytics
   consent; their columns are nullable for that reason.
-- The IP address is never stored. The server derives country, region and city
-  (city center coordinates for the admin map) and discards the IP.
+- The IP address is never stored, server logs included. The server derives
+  country, region and city (city center coordinates for the admin map) and
+  discards the IP. Rate limits use it in memory only.
 - The consent log is append-only. After a refusal the app may ask again after
   `reprompt_after_days` (default 180).
 - Analytics data is never collected on the device before consent "to send

@@ -24,4 +24,15 @@ describe('GET /health', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'ok', database: 'ok' });
   });
+  it('does not write the client IP to the logs', async () => {
+    const lines: string[] = [];
+    const logged = await buildApp({ logStream: { write: (line) => void lines.push(line) } });
+
+    await logged.inject({ method: 'GET', url: '/health', remoteAddress: '203.0.113.7' });
+    await logged.close();
+
+    const output = lines.join('');
+    expect(output).toContain('/health'); // the request was logged
+    expect(output).not.toContain('203.0.113.7');
+  });
 });

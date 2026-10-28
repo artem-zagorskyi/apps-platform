@@ -5,21 +5,30 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import { config } from './core/config.js';
-import { AppError } from './core/errors.js';
-import { identityRoutes } from './modules/identity/routes.js';
 import { isDatabaseReachable } from './core/db.js';
+import { AppError } from './core/errors.js';
+import { serializeRequest } from './core/logging.js';
+import { identityRoutes } from './modules/identity/routes.js';
+
+export interface BuildAppOptions {
+  // Tests only: receive log lines at info level instead of the configured output
+  logStream?: { write(line: string): void };
+}
 
 // Builds the Fastify instance with all plugins and routes.
 // Kept separate from server.ts so tests can build an app
 // and send requests to it without opening a real port.
-export async function buildApp() {
+export async function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
-      level: config.LOG_LEVEL,
-      // Human-readable logs in development, raw JSON everywhere else
-      ...(config.NODE_ENV === 'development' && {
-        transport: { target: 'pino-pretty' },
-      }),
+      level: options.logStream ? 'info' : config.LOG_LEVEL,
+      serializers: { req: serializeRequest },
+      ...(options.logStream
+        ? { stream: options.logStream }
+        : // Human-readable logs in development, raw JSON everywhere else
+          config.NODE_ENV === 'development' && {
+            transport: { target: 'pino-pretty' },
+          }),
     },
   });
 
@@ -55,7 +64,6 @@ export async function buildApp() {
     request.log.error(error);
     return reply.code(500).send({ error: 'internal_error', message: 'Internal server error' });
   });
-
 
   // Health check: the process is alive and the database answers.
   // Responds 503 if the database is unreachable.
