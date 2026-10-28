@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { config } from '../src/core/config.js';
 import { db, pool } from '../src/core/db.js';
-import { appPlatforms, apps } from '../src/modules/apps/schema.js';
+import { appPlatforms, apps, oauthClients } from '../src/modules/apps/schema.js';
 
 // Creates a "demo" app with Android and iOS platforms for local development.
+// With GOOGLE_WEB_CLIENT_ID set, also registers it for Google sign-in.
 // Safe to run repeatedly: existing rows are left untouched.
 
 if (config.NODE_ENV === 'production') {
@@ -24,6 +25,23 @@ await db
     { appId: demo.id, platform: 'ios', bundleId: 'com.example.demo' },
   ])
   .onConflictDoNothing();
+
+// Read directly, not through config: only this script needs it
+const googleWebClientId = process.env.GOOGLE_WEB_CLIENT_ID?.trim();
+if (googleWebClientId) {
+  await db
+    .insert(oauthClients)
+    .values({
+      appId: demo.id,
+      platform: 'android',
+      provider: 'google',
+      clientId: googleWebClientId,
+    })
+    .onConflictDoNothing();
+  console.log(`Google web client ID registered: ${googleWebClientId}`);
+} else {
+  console.log('GOOGLE_WEB_CLIENT_ID is not set: Google sign-in is not configured');
+}
 
 console.log(`Demo app id: ${demo.id}`);
 await pool.end();
