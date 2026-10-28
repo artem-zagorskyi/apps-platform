@@ -1,4 +1,5 @@
 {
   "PLATFORM_APP_ID": "paste the demo app id printed by pnpm db:seed",
-  "PLATFORM_API_URL": "http://10.0.2.2:3000"
+  "PLATFORM_API_URL": "http://10.0.2.2:3000",
+  "GOOGLE_SERVER_CLIENT_ID": ""
 }

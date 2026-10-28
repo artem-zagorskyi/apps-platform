@@ -7,6 +7,7 @@ analyzer:
     - example/build/**
     - example/android/**
     - example/ios/**
+    - android/**
   language:
     # No implicit casts from dynamic, no silently inferred dynamic types
     strict-casts: true

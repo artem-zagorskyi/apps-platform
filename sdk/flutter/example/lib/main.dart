@@ -9,6 +9,7 @@ const _apiUrl = String.fromEnvironment(
   'PLATFORM_API_URL',
   defaultValue: 'http://10.0.2.2:3000',
 );
+const _googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
 
 void main() {
   runApp(const DemoApp());
@@ -60,7 +61,11 @@ class _DemoHomePageState extends State<DemoHomePage> {
   }
 
   Future<void> _init() => _run('init', () async {
-        final platform = await AppPlatform.init(appId: _appId, baseUrl: Uri.parse(_apiUrl));
+        final platform = await AppPlatform.init(
+          appId: _appId,
+          baseUrl: Uri.parse(_apiUrl),
+          googleServerClientId: _googleServerClientId,
+        );
         _changes = platform.userChanges.listen((change) => _addLog('$change'));
         setState(() => _platform = platform);
       });
@@ -76,6 +81,49 @@ class _DemoHomePageState extends State<DemoHomePage> {
         final profile = await platform.me();
         setState(() => _profile = profile);
       });
+
+  Future<void> _signInWithGoogle() => _run('google', () async {
+        final platform = _platform;
+        if (platform == null) return;
+
+        final result = await platform.signInWithGoogle(resolveConflict: _chooseMergeStrategy);
+        _addLog('google result: ${result.name}');
+
+        if (result != GoogleSignInResult.cancelled) {
+          final profile = await platform.me();
+          setState(() => _profile = profile);
+        }
+      });
+
+  // The demo always asks. A real app returns keepTarget without asking
+  // when this device has no progress worth keeping.
+  Future<MergeStrategy?> _chooseMergeStrategy() {
+    if (!mounted) return Future.value();
+    return showDialog<MergeStrategy>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('This Google account already has progress'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, MergeStrategy.keepTarget),
+            child: const Text('Keep the account progress'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, MergeStrategy.keepSource),
+            child: const Text('Keep progress from this device'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, MergeStrategy.merge),
+            child: const Text('Combine both'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
 
   // Runs an SDK call and writes the outcome to the on-screen log
   Future<void> _run(String label, Future<void> Function() action) async {
@@ -103,6 +151,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
     final platform = _platform;
     final profile = _profile;
     final canAct = platform != null && !_busy;
+    final googleConfigured = _googleServerClientId.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Platform SDK demo')),
@@ -159,8 +208,20 @@ class _DemoHomePageState extends State<DemoHomePage> {
                 onPressed: canAct ? _loadProfile : null,
                 child: const Text('Load profile'),
               ),
+              FilledButton.tonal(
+                onPressed: canAct && googleConfigured ? _signInWithGoogle : null,
+                child: const Text('Sign in with Google'),
+              ),
             ],
           ),
+          if (!googleConfigured)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Google sign-in is off: set GOOGLE_SERVER_CLIENT_ID in dev.json',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
           if (_busy)
             const Padding(
               padding: EdgeInsets.only(top: 16),
