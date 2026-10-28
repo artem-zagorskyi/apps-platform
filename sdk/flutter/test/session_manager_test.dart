@@ -85,6 +85,10 @@ class FakeApi implements PlatformApi {
     if (owner == null) throw _deadToken;
     return issue(owner);
   }
+
+  // Not used by the session manager; added to satisfy the interface
+  @override
+  Future<PlatformUser> getMe(String accessToken) => throw UnimplementedError();
 }
 
 // Lets broadcast stream events reach their listeners

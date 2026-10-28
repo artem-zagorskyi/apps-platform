@@ -46,6 +46,11 @@ class PlatformApi {
     return _parse(() => TokenPair.fromJson(json));
   }
 
+  Future<PlatformUser> getMe(String accessToken) async {
+    final json = await _send('GET', '/v1/me', accessToken: accessToken);
+    return _parse(() => PlatformUser.fromJson(json));
+  }
+
   // Sends a request and returns the decoded JSON object of a 2xx response.
   // Every failure is turned into a AppPlatformException subtype.
   Future<Map<String, Object?>> _send(
