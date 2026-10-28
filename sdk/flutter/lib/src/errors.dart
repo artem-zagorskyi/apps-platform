@@ -62,3 +62,16 @@ abstract final class ApiErrorCode {
   /// Used when an error response had no readable code
   static const unknown = 'unknown';
 }
+
+/// The native sign-in sheet failed: no Google account on the device,
+/// a misconfigured client ID, or an unsupported platform.
+/// [code] comes from the native side.
+final class ProviderSignInException extends AppPlatformException {
+  const ProviderSignInException({required this.code, required String message})
+      : super(message);
+
+  final String code;
+
+  @override
+  String toString() => 'ProviderSignInException($code): $message';
+}

@@ -3,93 +3,18 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:renvix_sdk/renvix_sdk.dart';
 import 'package:renvix_sdk/src/api/models.dart';
-import 'package:renvix_sdk/src/api/platform_api.dart';
 import 'package:renvix_sdk/src/session/session_manager.dart';
 import 'package:renvix_sdk/src/storage/session_store.dart';
 
-const _client = ClientInfo(
-  appId: 'app-1',
-  platform: DevicePlatform.android,
-  appVersion: '1.0.0',
-  appBuild: '1',
-  osVersion: '17',
-);
+import 'support/fake_api.dart';
 
 const _offline = NetworkException('offline');
-
-const _deadToken = ApiException(
-  statusCode: 401,
-  code: ApiErrorCode.invalidRefreshToken,
-  message: 'Refresh token is invalid or expired',
-);
 
 const _unauthorized = ApiException(
   statusCode: 401,
   code: ApiErrorCode.unauthorized,
   message: 'Access token is invalid or expired',
 );
-
-/// In-memory stand-in for the platform server.
-/// Issues numbered tokens; handlers override responses per test.
-class FakeApi implements PlatformApi {
-  FakeApi(this._now);
-
-  final DateTime Function() _now;
-  final signUpInstallationIds = <String>[];
-  final refreshedTokens = <String>[];
-  final _ownerByRefreshToken = <String, String>{};
-  int _issued = 0;
-  int _users = 0;
-
-  Future<TokenPair> Function(String installationId)? onSignUp;
-  Future<TokenPair> Function(String refreshToken)? onRefresh;
-
-  TokenPair issue(String userId) {
-    _issued++;
-    final refreshToken = 'refresh-$_issued';
-    _ownerByRefreshToken[refreshToken] = userId;
-    return TokenPair(
-      userId: userId,
-      accessToken: 'access-$_issued',
-      accessTokenExpiresIn: const Duration(minutes: 15),
-      refreshToken: refreshToken,
-      refreshTokenExpiresAt: _now().add(const Duration(days: 90)),
-    );
-  }
-
-  @override
-  Duration get timeout => const Duration(seconds: 1);
-
-  @override
-  Future<TokenPair> signUpAnonymous({
-    required String appId,
-    required String installationId,
-    required DevicePlatform platform,
-    required String appVersion,
-    required String appBuild,
-    required String osVersion,
-  }) async {
-    signUpInstallationIds.add(installationId);
-    final handler = onSignUp;
-    if (handler != null) return handler(installationId);
-    _users++;
-    return issue('user-$_users');
-  }
-
-  @override
-  Future<TokenPair> refresh(String refreshToken) async {
-    refreshedTokens.add(refreshToken);
-    final handler = onRefresh;
-    if (handler != null) return handler(refreshToken);
-    final owner = _ownerByRefreshToken[refreshToken];
-    if (owner == null) throw _deadToken;
-    return issue(owner);
-  }
-
-  // Not used by the session manager; added to satisfy the interface
-  @override
-  Future<PlatformUser> getMe(String accessToken) => throw UnimplementedError();
-}
 
 // Lets broadcast stream events reach their listeners
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
@@ -113,7 +38,7 @@ void main() {
     final manager = SessionManager(
       api: api,
       store: store,
-      client: _client,
+      client: testClient,
       clock: () => now,
       newInstallationId: () => 'install-${++installationCounter}',
     );
@@ -232,7 +157,7 @@ void main() {
   group('dead session', () {
     test('a rejected refresh token resets to a new anonymous user', () async {
       await storePreviousSession();
-      api.onRefresh = (_) async => throw _deadToken;
+      api.onRefresh = (_) async => throw deadRefreshToken;
       final manager = createManager();
 
       await manager.start();
@@ -263,7 +188,7 @@ void main() {
 
     test('offline, a dead session is kept until a new user can be created', () async {
       await storePreviousSession();
-      api.onRefresh = (_) async => throw _deadToken;
+      api.onRefresh = (_) async => throw deadRefreshToken;
       api.onSignUp = (_) async => throw _offline;
       final manager = createManager();
 

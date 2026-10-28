@@ -121,16 +121,22 @@ otherwise the retry fails and the flow starts again.
 
 ### Resolving a conflict
 
-The SDK asks the app through a callback:
+`signInWithGoogle(resolveConflict: ...)` takes one callback. The SDK calls it
+on `409 account_exists` and retries with the **same** ID token and the
+returned strategy:
 
-- `hasLocalProgress()`: whether this device has progress worth keeping. If
-  not, the SDK uses `keep_target` without asking the person.
-- `chooseMergeStrategy()`: shows the app's dialog and returns
-  `keep_target` (progress of the account), `keep_source` (progress of this
-  device), `merge` (combine both) or cancel.
+- `MergeStrategy.keepTarget`: progress of the existing account
+- `MergeStrategy.keepSource`: progress of this device
+- `MergeStrategy.merge`: combine both
+- `null`: cancel; nothing changes
 
-Whatever is chosen, the device becomes the existing account's user. The
-strategy tells the app backend what to do with the domain data.
+The app returns `keepTarget` without asking when this device has no progress
+worth keeping, and shows its own dialog otherwise. Whatever is chosen, the
+device becomes the existing account's user; the strategy tells the app
+backend what to do with the domain data.
+
+On Android the SDK calls Credential Manager directly from its own Kotlin
+code, because a fresh server nonce must be passed with every sign-in.
 
 ## Apple sign-in (later, iOS only)
 

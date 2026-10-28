@@ -133,4 +133,39 @@ void main() {
 
     await expectLater(api.refresh('refresh-1'), throwsA(isA<ServerException>()));
   });
+
+    test('requests a nonce without a body', () async {
+    late http.Request sent;
+    final api = _api((request) async {
+      sent = request;
+      return _json({'nonce': 'n-1', 'expiresAt': '2026-10-28T12:10:00.000Z'}, 200);
+    });
+
+    final nonce = await api.issueNonce('access-1');
+
+    expect(sent.method, 'POST');
+    expect(sent.url.path, '/v1/auth/nonce');
+    expect(sent.headers['authorization'], 'Bearer access-1');
+    expect(sent.headers.containsKey('content-type'), isFalse);
+    expect(nonce.nonce, 'n-1');
+  });
+
+  test('sends the Google token with a merge strategy and parses signed_in', () async {
+    late http.Request sent;
+    final api = _api((request) async {
+      sent = request;
+      return _json({'result': 'signed_in', 'userId': 'user-9', 'tokens': _tokenPairJson}, 200);
+    });
+
+    final response = await api.signInWithGoogle(
+      'access-1',
+      idToken: 'google-id-token',
+      mergeStrategy: MergeStrategy.keepTarget,
+    );
+
+    expect(sent.url.path, '/v1/auth/google');
+    expect(jsonDecode(sent.body), {'idToken': 'google-id-token', 'mergeStrategy': 'keep_target'});
+    expect(response.outcome, ProviderSignInOutcome.signedIn);
+    expect(response.tokens?.userId, 'user-1');
+  });
 }

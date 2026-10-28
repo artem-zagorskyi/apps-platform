@@ -51,6 +51,23 @@ class PlatformApi {
     return _parse(() => PlatformUser.fromJson(json));
   }
 
+  Future<SignInNonce> issueNonce(String accessToken) async {
+    final json = await _send('POST', '/v1/auth/nonce', accessToken: accessToken);
+    return _parse(() => SignInNonce.fromJson(json));
+  }
+
+  Future<ProviderSignInResponse> signInWithGoogle(
+    String accessToken, {
+    required String idToken,
+    MergeStrategy? mergeStrategy,
+  }) async {
+    final json = await _send('POST', '/v1/auth/google', accessToken: accessToken, body: {
+      'idToken': idToken,
+      if (mergeStrategy != null) 'mergeStrategy': mergeStrategy.wireName,
+    });
+    return _parse(() => ProviderSignInResponse.fromJson(json));
+  }
+
   // Sends a request and returns the decoded JSON object of a 2xx response.
   // Every failure is turned into a AppPlatformException subtype.
   Future<Map<String, Object?>> _send(

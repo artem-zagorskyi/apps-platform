@@ -124,3 +124,69 @@ Map<String, Object?> readObject(Object? value) {
   if (value is Map<String, Object?>) return value;
   throw const FormatException('Expected an object');
 }
+
+/// What happens to this device's progress when it signs into an
+/// existing account. The app backend receives it with the merge.
+enum MergeStrategy {
+  /// Keep the existing account's progress; this device's progress is discarded
+  keepTarget('keep_target'),
+
+  /// Copy this device's progress into the existing account
+  keepSource('keep_source'),
+
+  /// Let the app backend combine both
+  merge('merge');
+
+  const MergeStrategy(this.wireName);
+
+  /// Value sent to the server
+  final String wireName;
+}
+
+/// One-time value the provider embeds into its ID token.
+class SignInNonce {
+  const SignInNonce({required this.nonce, required this.expiresAt});
+
+  factory SignInNonce.fromJson(Map<String, Object?> json) {
+    return SignInNonce(
+      nonce: readString(json, 'nonce'),
+      expiresAt: readDateTime(json, 'expiresAt'),
+    );
+  }
+
+  final String nonce;
+  final DateTime expiresAt;
+}
+
+enum ProviderSignInOutcome { linked, alreadyLinked, signedIn }
+
+/// Response of POST /v1/auth/google (and later /v1/auth/apple).
+class ProviderSignInResponse {
+  const ProviderSignInResponse({
+    required this.outcome,
+    required this.userId,
+    required this.tokens,
+  });
+
+  factory ProviderSignInResponse.fromJson(Map<String, Object?> json) {
+    final outcome = switch (readString(json, 'result')) {
+      'linked' => ProviderSignInOutcome.linked,
+      'already_linked' => ProviderSignInOutcome.alreadyLinked,
+      'signed_in' => ProviderSignInOutcome.signedIn,
+      final other => throw FormatException('Unknown sign-in result "$other"'),
+    };
+    final tokens = json['tokens'];
+
+    return ProviderSignInResponse(
+      outcome: outcome,
+      userId: readString(json, 'userId'),
+      tokens: tokens == null ? null : TokenPair.fromJson(readObject(tokens)),
+    );
+  }
+
+  final ProviderSignInOutcome outcome;
+  final String userId;
+
+  /// Set only for signedIn: the device switched to another user
+  final TokenPair? tokens;
+}
