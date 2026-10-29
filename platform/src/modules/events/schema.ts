@@ -1,4 +1,4 @@
-import { index, jsonb, pgSchema, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgSchema, text, unique, uuid, timestamp } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId } from '../../core/columns.js';
 import { apps } from '../apps/schema.js';
 import type { TrackingPlan } from './plan.js';
@@ -25,3 +25,12 @@ export const trackingPlans = eventsSchema.table(
     index('tracking_plans_app_created_idx').on(t.appId, t.createdAt.desc()),
   ],
 );
+
+// Ids of received events, for deduplication. The partitioned events table
+// cannot have a unique key on event_id alone (the partition key must be part
+// of it, and the corrected time differs between retries).
+// Ids older than 30 days will be removed by a background job.
+export const eventIds = eventsSchema.table('event_ids', {
+  eventId: uuid('event_id').primaryKey(),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});

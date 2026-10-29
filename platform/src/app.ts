@@ -11,6 +11,9 @@ import { serializeRequest } from './core/logging.js';
 import { identityRoutes } from './modules/identity/routes.js';
 import { consentRoutes } from './modules/identity/consent-routes.js';
 
+import { eventsRoutes } from './modules/events/routes.js';
+import { getPlatformPlan } from './modules/events/plans-service.js';
+
 export interface BuildAppOptions {
   // Tests only: receive log lines at info level instead of the configured output
   logStream?: { write(line: string): void };
@@ -81,10 +84,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
   // Filled by requireAuth on protected routes
   app.decorateRequest('auth', null);
 
+  // A broken platform tracking plan must stop the server at start-up
+  getPlatformPlan();
+
   // Feature modules
   await app.register(identityRoutes);
   
   await app.register(consentRoutes);
+  await app.register(eventsRoutes);
 
   return app;
 }

@@ -48,6 +48,8 @@ const envSchema = z.object({
   REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).default(30),
   // Standard platform events, generated from tracking-plan/platform.yaml
   PLATFORM_TRACKING_PLAN_PATH: z.string().default('../tracking-plan/platform.json'),
+  // Optional country database (DB-IP Lite, MMDB); without it country stays empty
+  GEOIP_DB_PATH: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;

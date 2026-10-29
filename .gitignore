@@ -25,6 +25,7 @@ build/
 # Local Docker data and backups
 infra/data/
 backups/
+platform/data/
 
 # OS and editors
 .DS_Store
