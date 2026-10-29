@@ -174,10 +174,21 @@ class SessionManager {
     }
   }
 
+  /// Set by the event manager: sends queued data of the current user
+  /// before the device switches users on purpose (logout, merge)
+  Future<void> Function()? beforeUserSwitch;
+
+  /// Best effort: the switch goes ahead whether this succeeds or not
+  Future<void> prepareUserSwitch() async {
+    final hook = beforeUserSwitch;
+    if (hook != null) await hook();
+  }
+
   /// Signs out on this device. The device gets a fresh anonymous user.
   /// Throws ApiException with code no_linked_account for an anonymous
   /// user, who would lose the account: the app should offer linking.
   Future<void> logout() async {
+    await prepareUserSwitch();
     final tokens = await authorized(_api.logout);
     await applyTokens(tokens, UserChangeReason.loggedOut);
   }

@@ -11,13 +11,22 @@ import 'auth/google_credentials.dart';
 import 'auth/google_sign_in_flow.dart';
 import 'consent/consent_manager.dart';
 import 'consent/consent_store.dart';
+import 'events/event_manager.dart';
+import 'events/event_queue.dart';
 import 'session/session_manager.dart';
 import 'storage/session_store.dart';
 
 /// Entry point of the SDK. Call [AppPlatform.init] once at app start-up,
 /// then use the returned object or [AppPlatform.instance].
 class AppPlatform {
-  AppPlatform._(this._session, this._api, this.clientInfo, this._googleSignIn, this.consent);
+  AppPlatform._(
+    this._session,
+    this._api,
+    this.clientInfo,
+    this._googleSignIn,
+    this.consent,
+    this.events,
+  );
 
   /// How long init waits for the server. A stored session is available
   /// immediately; renewal or sign-up continues in the background.
@@ -36,6 +45,10 @@ class AppPlatform {
 
   /// Consent decisions: what the app may collect and personalize
   final ConsentManager consent;
+
+  /// Event tracking. Pass it to the generated events class:
+  /// `final events = AppEvents(platform.events);`
+  final EventManager events;
 
   /// The initialized SDK. Throws if [init] has not completed.
   static AppPlatform get instance {
@@ -92,7 +105,17 @@ class AppPlatform {
       await consent.load();
       unawaited(consent.trySync());
 
-      return _instance = AppPlatform._(session, api, client, googleSignIn, consent);
+      // Events queued in an earlier run are sent as soon as possible
+      final events = EventManager(
+        session: session,
+        consent: consent,
+        api: api,
+        queue: await SqliteEventQueue.open(),
+        client: client,
+      )..start();
+      unawaited(events.tryFlush());
+
+      return _instance = AppPlatform._(session, api, client, googleSignIn, consent, events);
     } catch (_) {
       _initializing = null;
       rethrow;

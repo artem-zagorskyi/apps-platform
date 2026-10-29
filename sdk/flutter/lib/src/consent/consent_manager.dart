@@ -76,6 +76,9 @@ class ConsentManager {
   /// Current state; listen to rebuild the UI on changes
   ValueListenable<ConsentState> get state => _state;
 
+  /// Decisions recorded on the device and not sent yet
+  bool get hasPendingDecisions => _local.pending.isNotEmpty;
+
   /// Loads stored decisions. Called by the SDK at start-up.
   Future<void> load() async {
     _local = await _store.read();

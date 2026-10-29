@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:renvix_sdk/renvix_sdk.dart';
 import 'package:renvix_sdk/src/api/models.dart';
 import 'package:renvix_sdk/src/api/platform_api.dart';
+import 'package:renvix_sdk/src/events/event_queue.dart';
 
 const _tokenPairJson = {
   'userId': 'user-1',
@@ -311,5 +312,52 @@ void main() {
     expect(user.isAnonymous, isFalse);
     expect(user.linkedAccounts.single.provider, AuthProvider.google);
     expect(user.linkedAccounts.single.email, 'player@gmail.com');
+  });
+
+  test('sends an event batch without the category', () async {
+    late http.Request sent;
+    final api = _api((request) async {
+      sent = request;
+      return _json({'accepted': ['e-1'], 'rejected': <Object>[]}, 200);
+    });
+
+    final result = await api.sendEvents(
+      'access-1',
+      sentAt: DateTime.utc(2026, 10, 29, 12, 5),
+      events: [
+        QueuedEvent(
+          eventId: 'e-1',
+          name: 'app_opened',
+          category: EventCategory.analytics,
+          occurredAt: DateTime.utc(2026, 10, 29, 12),
+          sessionId: null,
+          userId: 'user-1',
+          appVersion: '1.0.0',
+          appBuild: '1',
+          osVersion: '17',
+          properties: const {'cold_start': true},
+          seq: 7,
+        ),
+      ],
+    );
+
+    expect(sent.url.path, '/v1/events');
+    expect(jsonDecode(sent.body), {
+      'sentAt': '2026-10-29T12:05:00.000Z',
+      'events': [
+        {
+          'eventId': 'e-1',
+          'name': 'app_opened',
+          'occurredAt': '2026-10-29T12:00:00.000Z',
+          'sessionId': null,
+          'seq': 7,
+          'appVersion': '1.0.0',
+          'appBuild': '1',
+          'osVersion': '17',
+          'properties': {'cold_start': true},
+        },
+      ],
+    });
+    expect(result.accepted, ['e-1']);
   });
 }

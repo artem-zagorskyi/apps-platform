@@ -58,6 +58,9 @@ class GoogleSignInFlow {
       final strategy = await resolveConflict();
       if (strategy == null) return GoogleSignInResult.cancelled;
 
+      // The device is about to become another user: send what this one has queued
+      await _session.prepareUserSwitch();
+
       // Same token: the refused attempt did not consume the nonce
       response = await _send(idToken, strategy);
     }

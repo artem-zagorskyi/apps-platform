@@ -1,6 +1,7 @@
 import 'package:renvix_sdk/renvix_sdk.dart';
 import 'package:renvix_sdk/src/api/models.dart';
 import 'package:renvix_sdk/src/api/platform_api.dart';
+import 'package:renvix_sdk/src/events/event_queue.dart';
 
 const testClient = ClientInfo(
   appId: 'app-1',
@@ -179,6 +180,26 @@ class FakeApi implements PlatformApi {
       );
     }
     return _consentState(userId);
+  }
+
+  // Events server: accepts everything unless a test says otherwise
+  final eventBatches = <({String userId, List<QueuedEvent> events})>[];
+  AppPlatformException? eventsFailure;
+  Future<EventBatchResult> Function(List<QueuedEvent> events)? onSendEvents;
+
+  @override
+  Future<EventBatchResult> sendEvents(
+    String accessToken, {
+    required DateTime sentAt,
+    required List<QueuedEvent> events,
+  }) async {
+    final failure = eventsFailure;
+    if (failure != null) throw failure;
+
+    eventBatches.add((userId: _userOf(accessToken), events: events));
+    final handler = onSendEvents;
+    if (handler != null) return handler(events);
+    return EventBatchResult(accepted: [for (final e in events) e.eventId], rejected: const []);
   }
 
   // Not used in these tests; required by the interface

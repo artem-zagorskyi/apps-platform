@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../errors.dart';
+import '../events/event_queue.dart';
 import 'models.dart';
 
 /// Thin client for the platform server: HTTP and JSON only.
@@ -95,6 +96,31 @@ class PlatformApi {
       'sentAt': _isoMillis(sentAt),
     });
     return _parse(() => ServerConsentState.fromJson(json));
+  }
+
+  Future<EventBatchResult> sendEvents(
+    String accessToken, {
+    required DateTime sentAt,
+    required List<QueuedEvent> events,
+  }) async {
+    final json = await _send('POST', '/v1/events', accessToken: accessToken, body: {
+      'sentAt': _isoMillis(sentAt),
+      'events': [
+        for (final event in events)
+          {
+            'eventId': event.eventId,
+            'name': event.name,
+            'occurredAt': _isoMillis(event.occurredAt),
+            'sessionId': event.sessionId,
+            'seq': event.seq,
+            'appVersion': event.appVersion,
+            'appBuild': event.appBuild,
+            'osVersion': event.osVersion,
+            'properties': event.properties,
+          },
+      ],
+    });
+    return _parse(() => EventBatchResult.fromJson(json));
   }
 
   // UTC with millisecond precision; Dart would otherwise add microseconds

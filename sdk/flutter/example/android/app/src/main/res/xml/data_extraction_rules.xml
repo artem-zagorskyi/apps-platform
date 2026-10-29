@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep SDK storage on this device only: a restored installation id
+     would be shared by two devices, restored encrypted values cannot be
+     decrypted because Keystore keys are not backed up, and queued events
+     belong to this installation. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="app_platform_events.db" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="app_platform_events.db" />
+    </device-transfer>
+</data-extraction-rules>

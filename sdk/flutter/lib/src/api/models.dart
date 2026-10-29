@@ -295,3 +295,36 @@ T readWireEnum<T extends Enum>(
   }
   throw FormatException('Unknown value "$name" for "$key"');
 }
+
+/// Response of POST /v1/events.
+class EventBatchResult {
+  const EventBatchResult({required this.accepted, required this.rejected});
+
+  factory EventBatchResult.fromJson(Map<String, Object?> json) {
+    final accepted = json['accepted'];
+    final rejected = json['rejected'];
+    if (accepted is! List<Object?> || rejected is! List<Object?>) {
+      throw const FormatException('Expected lists "accepted" and "rejected"');
+    }
+
+    return EventBatchResult(
+      accepted: [
+        for (final id in accepted)
+          if (id is String) id else throw const FormatException('Expected event ids'),
+      ],
+      rejected: [
+        for (final item in rejected)
+          (
+            eventId: readString(readObject(item), 'eventId'),
+            reason: readString(readObject(item), 'reason'),
+          ),
+      ],
+    );
+  }
+
+  /// Stored now or before: drop from the queue
+  final List<String> accepted;
+
+  /// Never stored (e.g. no consent): drop from the queue too
+  final List<({String eventId, String reason})> rejected;
+}
