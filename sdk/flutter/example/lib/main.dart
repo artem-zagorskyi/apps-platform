@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:renvix_sdk/renvix_sdk.dart';
 
+import 'consent_screen.dart';
+
 // Set with --dart-define-from-file=dev.json (see dev.example.json)
 const _appId = String.fromEnvironment('PLATFORM_APP_ID');
 const _apiUrl = String.fromEnvironment(
@@ -42,6 +44,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
   PlatformUser? _profile;
   StreamSubscription<UserChange>? _changes;
   bool _busy = false;
+  bool _consentScreenOpen = false;
 
   @override
   void initState() {
@@ -56,6 +59,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
 
   @override
   void dispose() {
+    _platform?.consent.state.removeListener(_onConsentChanged);
     unawaited(_changes?.cancel());
     super.dispose();
   }
@@ -68,6 +72,9 @@ class _DemoHomePageState extends State<DemoHomePage> {
         );
         _changes = platform.userChanges.listen(_onUserChange);
         setState(() => _platform = platform);
+
+        platform.consent.state.addListener(_onConsentChanged);
+        _onConsentChanged();
       });
 
   // Another user now owns the device: drop everything of the previous one.
@@ -76,6 +83,53 @@ class _DemoHomePageState extends State<DemoHomePage> {
     _addLog('$change');
     setState(() => _profile = null);
   }
+
+  // Shows the consent screen whenever a decision is needed:
+  // first launch, after logout, after a new policy version
+  void _onConsentChanged() {
+    final platform = _platform;
+    if (!mounted || platform == null || _consentScreenOpen) return;
+    if (platform.consent.state.value.status == ConsentStatus.needsDecision) {
+      unawaited(_askForConsent(ConsentSource.firstLaunch));
+    }
+  }
+
+  Future<void> _askForConsent(ConsentSource source) async {
+    final platform = _platform;
+    if (platform == null || _consentScreenOpen) return;
+
+    _consentScreenOpen = true;
+    try {
+      final choice = await showDialog<ConsentChoice>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const ConsentScreen(),
+      );
+      if (choice == null) return;
+
+      await platform.consent.record(
+        analytics: choice.analytics,
+        personalization: choice.personalization,
+        source: source,
+      );
+      _addLog(
+        'consent (${source.name}): analytics ${choice.analytics}, '
+        'personalization ${choice.personalization}',
+      );
+    } finally {
+      _consentScreenOpen = false;
+    }
+  }
+
+  // The settings toggles: change one decision at a time
+  Future<void> _changeConsent({bool? analytics, bool? personalization}) =>
+      _run('consent', () async {
+        await _platform?.consent.record(
+          analytics: analytics,
+          personalization: personalization,
+          source: ConsentSource.settings,
+        );
+      });
 
   Future<void> _ensureSession() => _run('session', () async {
         await _platform?.ensureSession();
@@ -168,6 +222,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
     final profile = _profile;
     final canAct = platform != null && !_busy;
     final googleConfigured = _googleServerClientId.isNotEmpty;
+    final titleStyle = Theme.of(context).textTheme.titleMedium;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Platform SDK demo')),
@@ -195,10 +250,39 @@ class _DemoHomePageState extends State<DemoHomePage> {
           ],
           if (platform != null) ...[
             const Divider(height: 32),
-            Text(
-              'Collected on this device',
-              style: Theme.of(context).textTheme.titleMedium,
+            Text('Consent', style: titleStyle),
+            const SizedBox(height: 8),
+            ValueListenableBuilder<ConsentState>(
+              valueListenable: platform.consent.state,
+              builder: (context, consent, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Field('Status', consent.status.name),
+                  _Field('Policy', consent.policyVersion ?? 'unknown (offline)'),
+                  if (consent.canAskAgainAt case final askAgain?)
+                    _Field('Ask again', askAgain.toLocal().toString()),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Analytics'),
+                    value: consent.analytics,
+                    onChanged: canAct ? (value) => unawaited(_changeConsent(analytics: value)) : null,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Personalization'),
+                    value: consent.personalization,
+                    onChanged:
+                        canAct ? (value) => unawaited(_changeConsent(personalization: value)) : null,
+                  ),
+                  TextButton(
+                    onPressed: canAct ? () => unawaited(_askForConsent(ConsentSource.reprompt)) : null,
+                    child: const Text('Show consent screen'),
+                  ),
+                ],
+              ),
             ),
+            const Divider(height: 32),
+            Text('Collected on this device', style: titleStyle),
             const SizedBox(height: 8),
             _Field('Platform', platform.clientInfo.platform.name),
             _Field(
@@ -248,7 +332,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
               child: LinearProgressIndicator(),
             ),
           const Divider(height: 32),
-          Text('Log', style: Theme.of(context).textTheme.titleMedium),
+          Text('Log', style: titleStyle),
           for (final line in _log)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
