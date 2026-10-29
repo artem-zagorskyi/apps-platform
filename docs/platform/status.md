@@ -12,7 +12,7 @@ external dependency)
 |------|--------|-------------|-------|
 | Foundation (config, DB, errors, logs, tests) | Done | Done | Planned |
 | 1. Identity | Partial | Partial | Planned |
-| Consent | Partial (schema) | Planned | Planned |
+| Consent | Done | Done | Planned |
 | 2. Event tracking | Planned (designed) | Planned (designed) | Planned |
 | 3. Offline-first sync | Planned | Planned | — |
 | 4. Remote config & A/B tests | Planned | Planned | Planned |
@@ -91,27 +91,25 @@ Details: [identity.md](identity.md).
 
 ## Consent
 
-Designed; implementation next.
-
 | Item | Status |
 |------|--------|
 | Policies per region, append-only consent log (schema) | Done |
-| GeoIP (DB-IP Lite country database on the server) | Planned |
-| `GET /v1/consent`: region, policy, decisions, re-prompt timing | Planned |
-| `POST /v1/consent`: record decisions with policy version and decision time | Planned |
-| SDK: local decisions, state `needsDecision` / `decided` / `notRequired`, offline region from SIM or device settings | Planned |
+| `GET /v1/consent`, `POST /v1/consent` with clock correction | Done |
+| "Ask everyone" policy for the demo app (`db:seed`) | Done |
+| SDK: local decisions, state, offline queue, user changes | Done |
+| Demo: consent screen and settings toggles | Done, verified on the emulator |
+| GeoIP (country from IP) | Planned: with events |
 | SDK: withdrawal removes queued analytics events | Planned: with events |
-| Demo: example consent screen and settings toggle | Planned |
 | Ads consent (Google UMP, TCF) and "consent or pay" | Planned: with the ads system |
 
 Decisions:
 
 - Own consent screen for analytics and personalization; the app draws it,
   the SDK provides state and recording.
-- Regions: EEA, UK and Switzerland show the screen (`optional`); the rest of
-  the world collects by default with an opt-out in settings (`none`).
-- Unknown region (offline, no SIM signal): show the screen.
-- After a merge the account's existing decision applies; without one the
+- Everyone is asked: as a German business, GDPR and the German consent rules
+  apply to all users. Regional policies stay in the database in case legal
+  review allows exceptions.
+- After a merge the account's existing decisions apply; without them the
   person is asked. After logout the person is asked again.
 
 ## 2. Event tracking

@@ -157,6 +157,29 @@ must exchange it on the first link. Not available until the server supports it.
 linked providers with emails. The SDK caches it and refreshes it after any
 sign-in change.
 
+## Consent
+
+`AppPlatform.consent` (`ConsentManager`):
+
+- `state` is a `ValueListenable<ConsentState>`: `status` (`needsDecision`,
+  `decided`, `notRequired`), whether analytics and personalization are
+  allowed, the policy version and when the app may ask again.
+- `record(analytics:, personalization:, source:)` applies at once, also
+  offline, and is sent to the server when possible: at start-up, on the next
+  decision or on a user change.
+- The status is computed on the device with the server's rules. An unknown
+  policy (never reached the server) means "ask".
+- Nothing is allowed without a decision, except under mode `none`.
+- A new policy version asks again; the previous choice applies meanwhile.
+- A decision made before the first user existed is sent once the user is
+  created, with the current policy version.
+- Logout, session reset and merge reset local decisions; the new user's
+  server decisions apply, otherwise the person is asked.
+
+The app draws the consent screen: nothing pre-selected, rejecting as easy as
+accepting, must be answered. It shows the screen whenever the status becomes
+`needsDecision` and offers toggles in its settings.
+
 ## User changes
 
 The SDK exposes a stream of user changes with the reason: `signed_up`,
@@ -189,8 +212,6 @@ in [identity.md](../platform/identity.md#error-codes)). Network failures,
 
 Each will get its own section when the server part is designed:
 
-- **Consent**: show the screen per regional policy, record choices, gate
-  analytics and ads, re-prompt timing.
 - **Device details**: collected and sent only with analytics consent.
 - **Events**: typed events generated from the tracking plan, local queue in
   SQLite, batched upload, essential vs analytics categories.

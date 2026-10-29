@@ -348,6 +348,54 @@ Response `200`:
 
 Errors: `401 unauthorized`.
 
+### `GET /v1/consent`
+
+The current policy, the latest decision per purpose and whether the consent
+screen is needed. Auth required.
+
+Response `200`:
+
+```json
+{
+  "policy": { "region": "*", "mode": "optional", "version": "2026-10-29" },
+  "status": "needs_decision | decided | not_required",
+  "decisions": [
+    { "purpose": "analytics", "granted": true, "policyVersion": "2026-10-29", "decidedAt": "ISO 8601" }
+  ],
+  "canAskAgainAt": "ISO 8601 or null"
+}
+```
+
+- The policy is chosen by country, then `*`. The country is not known yet
+  (no GeoIP), so `*` applies. An app without any policy asks everyone
+  (version `0`, warning in the log).
+- Screen purposes: `analytics` and `personalization`. Ads consent comes later
+  through Google UMP.
+- `decided` needs a decision for every screen purpose under the **current**
+  policy version. A new version asks again.
+- `not_required` (mode `none`): no screen; refusals from settings still count.
+- `canAskAgainAt`: the last refusal plus `reprompt_after_days`.
+
+### `POST /v1/consent`
+
+Records decisions. Auth required. Rate limit 20/min per IP.
+
+```json
+{
+  "decisions": { "analytics": true, "personalization": false },
+  "policyVersion": "2026-10-29",
+  "source": "first_launch | reprompt | settings",
+  "decidedAt": "device time of the decision",
+  "sentAt": "device time of sending"
+}
+```
+
+- One append-only log row per purpose; the row time is the decision time.
+- The decision time is shifted by the device clock error (`server now -
+  sentAt`) and never lies in the future.
+- Response: the new state, as in `GET`.
+- The user must be active and still own the device.
+
 ## Error codes
 
 | Code                      | Status | Client action |
@@ -399,7 +447,6 @@ Errors: `401 unauthorized`.
   notifications. One developer key for all apps in `.env` (`APPLE_TEAM_ID`,
   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`). Waiting for an Apple Developer account.
 - **Device details update** with analytics consent, and geo from IP.
-- **Consents API**: recording choices, current state, re-prompt timing.
 - **Account deletion**: `DELETE /v1/me`, scheduled erasure in every module,
   Apple token revocation, notifying the app backend.
 - **Merge delivery** to app backends (signed webhook with retries, sets `notified_at`).
