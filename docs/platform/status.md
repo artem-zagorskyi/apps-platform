@@ -10,9 +10,10 @@ external dependency)
 
 | Area | Server | Flutter SDK | Admin |
 |------|--------|-------------|-------|
-| Foundation (config, DB, errors, tests) | Done | Planned | Planned |
+| Foundation (config, DB, errors, logs, tests) | Done | Done | Planned |
 | 1. Identity | Partial | Partial | Planned |
-| 2. Event tracking | Planned | Planned | Planned |
+| Consent | Partial (schema) | Planned | Planned |
+| 2. Event tracking | Planned (designed) | Planned (designed) | Planned |
 | 3. Offline-first sync | Planned | Planned | — |
 | 4. Remote config & A/B tests | Planned | Planned | Planned |
 | 5. Subscriptions | Planned | Planned | Planned |
@@ -20,10 +21,11 @@ external dependency)
 | 7. Push notifications | Planned | Planned | Planned |
 | 8. Dashboards & alerts | Planned | — | Planned |
 | 9. Protection & engagement | Planned | Planned | — |
-| Consent | Partial (schema) | Planned | Planned |
 | Deployment | Planned | — | — |
 
 ## Foundation
+
+### Server
 
 | Item | Status |
 |------|--------|
@@ -33,15 +35,28 @@ external dependency)
 | Drizzle ORM, generated migrations, migrate script | Done |
 | Unified error format, `AppError` with logged internal reasons | Done |
 | `GET /health` with database check | Done |
+| Request logs without the client IP | Done |
 | Vitest integration tests on a separate test database | Done |
 | ESLint and Prettier | Planned |
 | CI (typecheck + tests on every push) | Planned |
 | API reference generated from zod schemas (`@fastify/swagger`) | Planned |
 | Background job queue (pg-boss) | Planned |
 
+### Flutter SDK
+
+| Item | Status |
+|------|--------|
+| Package `renvix_sdk` with Android plugin part, strict analyzer | Done |
+| Secure key-value storage (Keystore / Keychain, this device only) | Done |
+| Platform API client with typed errors (`ApiException`, `ServerException`, `NetworkException`) | Done |
+| Demo app (`sdk/flutter/example`) as a test bench | Done |
+| Local SQLite database for the SDK (`drift`) | Planned: with events |
+
 ## 1. Identity
 
 Details: [identity.md](identity.md).
+
+### Server
 
 | Item | Status |
 |------|--------|
@@ -54,9 +69,9 @@ Details: [identity.md](identity.md).
 | Logout with device handover | Done |
 | Sign-in nonces | Done |
 | Google sign-in, linking, two-step merge of anonymous users | Done |
+| Google web client ID registered by `db:seed` from `.env` | Done |
 | Apple sign-in (iOS only), code exchange, encrypted Apple refresh token | Deferred: needs an Apple Developer account |
-| Device details and geo from IP (with analytics consent) | Planned |
-| Consents API (record, current state, re-prompt timing) | Planned |
+| Installation update on launch (app version, device details with analytics consent, geo) | Planned |
 | Account deletion (`DELETE /v1/me`, scheduled erasure, Apple revocation) | Planned |
 | Merge delivery to app backends (signed webhook, retries, `notified_at`) | Planned: needs the job queue |
 | Cleanup of nonces of abandoned installations | Planned: needs the job queue |
@@ -67,54 +82,72 @@ Details: [identity.md](identity.md).
 
 | Item | Status |
 |------|--------|
-| Secure storage, API client, typed errors | Done |
 | Session manager: start-up, offline mode, single-flight refresh, retry on 401, dead session reset | Done |
 | `AppPlatform` entry point, client info, `GET /v1/me` | Done |
 | Google sign-in on Android (Credential Manager, own Kotlin code), merge dialog | Done, verified on the emulator |
-| Logout | Planned |
+| Logout | Done, verified on the emulator |
 | Google / Apple sign-in on iOS | Deferred |
-| Demo app | Done: session, profile, Google sign-in |
+| Account deletion | Planned |
+
+## Consent
+
+Designed; implementation next.
+
+| Item | Status |
+|------|--------|
+| Policies per region, append-only consent log (schema) | Done |
+| GeoIP (DB-IP Lite country database on the server) | Planned |
+| `GET /v1/consent`: region, policy, decisions, re-prompt timing | Planned |
+| `POST /v1/consent`: record decisions with policy version and decision time | Planned |
+| SDK: local decisions, state `needsDecision` / `decided` / `notRequired`, offline region from SIM or device settings | Planned |
+| SDK: withdrawal removes queued analytics events | Planned: with events |
+| Demo: example consent screen and settings toggle | Planned |
+| Ads consent (Google UMP, TCF) and "consent or pay" | Planned: with the ads system |
+
+Decisions:
+
+- Own consent screen for analytics and personalization; the app draws it,
+  the SDK provides state and recording.
+- Regions: EEA, UK and Switzerland show the screen (`optional`); the rest of
+  the world collects by default with an opt-out in settings (`none`).
+- Unknown region (offline, no SIM signal): show the screen.
+- After a merge the account's existing decision applies; without one the
+  person is asked. After logout the person is asked again.
 
 ## 2. Event tracking
 
-| Item | Status |
-|------|--------|
-| Tracking plan (YAML) with event categories (essential / analytics) | Planned |
-| Code generation: Dart classes and server validation | Planned |
-| Batched ingestion endpoint, deduplication by event id | Planned |
-| Event table partitioned by month, context columns + JSON properties | Planned |
-| Consent gating on the server | Planned |
-
-## 3. Offline-first sync
+Designed; implementation after consent.
 
 | Item | Status |
 |------|--------|
-| Sync library for app backends (`packages/`) | Planned |
-| Outbox, cursor-based pull, per-field last-write-wins | Planned |
+| Tracking plan (YAML): platform events here, app events in the app repo, uploaded to the server | Planned |
+| Code generation: Dart functions and server validation | Planned |
+| `POST /v1/events`: batches up to 100, dedup by `event_id`, clock skew correction, country from IP | Planned |
+| Monthly partitioned `events.events` table | Planned |
+| Invalid events stored with a flag and alerted, not dropped | Planned |
+| SDK queue in its own SQLite database, batched upload, offline limit | Planned |
+| Standard platform events (`app_installed`, `app_opened`, sessions, `app_updated`, account and consent events) | Planned |
+| Queue flushed before a user switch (logout, merge) | Planned |
 
-## 4. Remote config & A/B tests
+Decisions:
+
+- Categories: `essential` (always recorded) and `analytics` (only with
+  consent; not even stored on the device without it).
+- No free text typed by the person in event properties.
+- Session: a new one after 30 minutes in the background.
+- Raw events with identifiers kept 26 months, then anonymized (identifiers
+  removed, time rounded to the day); deleted or anonymized on account
+  deletion. Aggregates and trained models kept without limit. Needs legal review.
+
+## 3–9. Other systems
 
 | Item | Status |
 |------|--------|
-| Config keys with defaults, overrides per experiment | Planned |
-| Hash-based assignment, layers with salts, global holdout | Planned |
-| Exposure events, kill switches | Planned |
+| Offline-first sync: library for app backends, outbox, cursor pull, per-field last-write-wins | Planned |
+| Remote config, hash-based assignment, layers, global holdout, exposure events, kill switches | Planned |
 | Decision logging (variant, policy, probability) | Planned |
-
-## 5. Subscriptions
-
-| Item | Status |
-|------|--------|
-| Play Billing purchase verification and acknowledge | Planned |
-| RTDN via Pub/Sub push: grace period, account hold, cancel, refunds | Planned |
-| Entitlements as source of truth, restore | Planned |
-| "Consent or pay" ad-free entitlement | Planned |
+| Play Billing verification, RTDN, entitlements, restore | Planned |
 | App Store (StoreKit, server notifications) | Deferred |
-
-## 6–9. Other systems
-
-| Item | Status |
-|------|--------|
 | Install Referrer, server-side conversions to ad networks | Planned |
 | FCM tokens, templates, scheduler, weekly budget, delivery logs | Planned |
 | Cohort retention, funnels, user states, Telegram alerts | Planned |
