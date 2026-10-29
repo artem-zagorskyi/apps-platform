@@ -26,6 +26,7 @@ class FakeApi implements PlatformApi {
   final refreshedTokens = <String>[];
   final googleSignIns = <({String idToken, MergeStrategy? strategy})>[];
   final _ownerByRefreshToken = <String, String>{};
+  final _ownerByAccessToken = <String, String>{};
   int _issued = 0;
   int _users = 0;
   int _nonces = 0;
@@ -34,19 +35,56 @@ class FakeApi implements PlatformApi {
   Future<TokenPair> Function(String refreshToken)? onRefresh;
   Future<ProviderSignInResponse> Function(String idToken, MergeStrategy? strategy)?
       onGoogleSignIn;
+  Future<TokenPair> Function(String accessToken)? onLogout;
+
+  // Consent server: one policy, decisions per user
+  ConsentMode consentMode = ConsentMode.optional;
+  String consentPolicyVersion = 'v1';
+  AppPlatformException? consentFailure;
+  final consentRecords = <({
+    String userId,
+    Map<ConsentPurpose, bool> decisions,
+    String policyVersion,
+    ConsentSource source,
+  })>[];
+  final _consentByUser = <String, Map<ConsentPurpose, ConsentDecision>>{};
 
   TokenPair issue(String userId) {
     _issued++;
+    final accessToken = 'access-$_issued';
     final refreshToken = 'refresh-$_issued';
+    _ownerByAccessToken[accessToken] = userId;
     _ownerByRefreshToken[refreshToken] = userId;
     return TokenPair(
       userId: userId,
-      accessToken: 'access-$_issued',
+      accessToken: accessToken,
       accessTokenExpiresIn: const Duration(minutes: 15),
       refreshToken: refreshToken,
       refreshTokenExpiresAt: _now().add(const Duration(days: 90)),
     );
   }
+
+  /// Decisions the server already has for a user (e.g. from another device)
+  void setServerConsent(String userId, Map<ConsentPurpose, bool> decisions) {
+    _consentByUser[userId] = {
+      for (final entry in decisions.entries)
+        entry.key: ConsentDecision(
+          granted: entry.value,
+          policyVersion: consentPolicyVersion,
+          decidedAt: _now(),
+        ),
+    };
+  }
+
+  String _userOf(String accessToken) =>
+      _ownerByAccessToken[accessToken] ?? (throw StateError('Unknown access token $accessToken'));
+
+  ServerConsentState _consentState(String userId) => ServerConsentState(
+        mode: consentMode,
+        policyVersion: consentPolicyVersion,
+        decisions: Map.of(_consentByUser[userId] ?? const {}),
+        canAskAgainAt: null,
+      );
 
   @override
   Duration get timeout => const Duration(seconds: 1);
@@ -98,16 +136,52 @@ class FakeApi implements PlatformApi {
     return handler(idToken, mergeStrategy);
   }
 
-  // Not used in these tests; required by the interface
-  @override
-  Future<PlatformUser> getMe(String accessToken) => throw UnimplementedError();
-
-  Future<TokenPair> Function(String accessToken)? onLogout;
-
   @override
   Future<TokenPair> logout(String accessToken) async {
     final handler = onLogout;
     if (handler == null) throw StateError('Set onLogout in the test');
     return handler(accessToken);
   }
+
+  @override
+  Future<ServerConsentState> getConsent(String accessToken) async {
+    final failure = consentFailure;
+    if (failure != null) throw failure;
+    return _consentState(_userOf(accessToken));
+  }
+
+  @override
+  Future<ServerConsentState> recordConsent(
+    String accessToken, {
+    required Map<ConsentPurpose, bool> decisions,
+    required String policyVersion,
+    required ConsentSource source,
+    required DateTime decidedAt,
+    required DateTime sentAt,
+  }) async {
+    final failure = consentFailure;
+    if (failure != null) throw failure;
+
+    final userId = _userOf(accessToken);
+    consentRecords.add((
+      userId: userId,
+      decisions: decisions,
+      policyVersion: policyVersion,
+      source: source,
+    ));
+
+    final stored = _consentByUser.putIfAbsent(userId, () => {});
+    for (final entry in decisions.entries) {
+      stored[entry.key] = ConsentDecision(
+        granted: entry.value,
+        policyVersion: policyVersion,
+        decidedAt: decidedAt,
+      );
+    }
+    return _consentState(userId);
+  }
+
+  // Not used in these tests; required by the interface
+  @override
+  Future<PlatformUser> getMe(String accessToken) => throw UnimplementedError();
 }

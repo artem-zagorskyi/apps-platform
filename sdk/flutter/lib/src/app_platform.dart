@@ -9,13 +9,15 @@ import 'api/models.dart';
 import 'api/platform_api.dart';
 import 'auth/google_credentials.dart';
 import 'auth/google_sign_in_flow.dart';
+import 'consent/consent_manager.dart';
+import 'consent/consent_store.dart';
 import 'session/session_manager.dart';
 import 'storage/session_store.dart';
 
 /// Entry point of the SDK. Call [AppPlatform.init] once at app start-up,
 /// then use the returned object or [AppPlatform.instance].
 class AppPlatform {
-  AppPlatform._(this._session, this._api, this.clientInfo, this._googleSignIn);
+  AppPlatform._(this._session, this._api, this.clientInfo, this._googleSignIn, this.consent);
 
   /// How long init waits for the server. A stored session is available
   /// immediately; renewal or sign-up continues in the background.
@@ -31,6 +33,9 @@ class AppPlatform {
   /// App and device details collected by the SDK and sent to the server.
   /// More details will be added only with analytics consent.
   final ClientInfo clientInfo;
+
+  /// Consent decisions: what the app may collect and personalize
+  final ConsentManager consent;
 
   /// The initialized SDK. Throws if [init] has not completed.
   static AppPlatform get instance {
@@ -63,9 +68,10 @@ class AppPlatform {
     try {
       final client = await _collectClientInfo(appId);
       final api = PlatformApi(baseUri: baseUrl, client: httpClient ?? http.Client());
+      final storage = SecureKeyValueStore();
       final session = SessionManager(
         api: api,
-        store: SessionStore(SecureKeyValueStore()),
+        store: SessionStore(storage),
         client: client,
       );
 
@@ -81,7 +87,12 @@ class AppPlatform {
       // Do not hold the app on a slow network; the start continues in the background
       await session.start().timeout(_startupNetworkWait, onTimeout: () {});
 
-      return _instance = AppPlatform._(session, api, client, googleSignIn);
+      // Stored decisions are available at once; the server state follows
+      final consent = ConsentManager(session: session, api: api, store: ConsentStore(storage));
+      await consent.load();
+      unawaited(consent.trySync());
+
+      return _instance = AppPlatform._(session, api, client, googleSignIn, consent);
     } catch (_) {
       _initializing = null;
       rethrow;

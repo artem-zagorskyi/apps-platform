@@ -74,6 +74,34 @@ class PlatformApi {
     return _parse(() => TokenPair.fromJson(json));
   }
 
+  Future<ServerConsentState> getConsent(String accessToken) async {
+    final json = await _send('GET', '/v1/consent', accessToken: accessToken);
+    return _parse(() => ServerConsentState.fromJson(json));
+  }
+
+  Future<ServerConsentState> recordConsent(
+    String accessToken, {
+    required Map<ConsentPurpose, bool> decisions,
+    required String policyVersion,
+    required ConsentSource source,
+    required DateTime decidedAt,
+    required DateTime sentAt,
+  }) async {
+    final json = await _send('POST', '/v1/consent', accessToken: accessToken, body: {
+      'decisions': {for (final entry in decisions.entries) entry.key.name: entry.value},
+      'policyVersion': policyVersion,
+      'source': source.wireName,
+      'decidedAt': _isoMillis(decidedAt),
+      'sentAt': _isoMillis(sentAt),
+    });
+    return _parse(() => ServerConsentState.fromJson(json));
+  }
+
+  // UTC with millisecond precision; Dart would otherwise add microseconds
+  static String _isoMillis(DateTime time) =>
+      DateTime.fromMillisecondsSinceEpoch(time.millisecondsSinceEpoch, isUtc: true)
+          .toIso8601String();
+
   // Sends a request and returns the decoded JSON object of a 2xx response.
   // Every failure is turned into a AppPlatformException subtype.
   Future<Map<String, Object?>> _send(

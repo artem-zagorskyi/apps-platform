@@ -190,3 +190,108 @@ class ProviderSignInResponse {
   /// Set only for signedIn: the device switched to another user
   final TokenPair? tokens;
 }
+
+/// Purposes on the platform's consent screen. Ads consent comes later.
+enum ConsentPurpose { analytics, personalization }
+
+enum ConsentMode {
+  /// No consent screen; analytics is on unless switched off in settings
+  none('none'),
+
+  /// Consent screen; the app works after a refusal
+  optional('optional'),
+
+  /// Consent or an ad-free subscription (with the ads system)
+  consentOrPay('consent_or_pay');
+
+  const ConsentMode(this.wireName);
+  final String wireName;
+}
+
+/// Where the person made the choice.
+enum ConsentSource {
+  firstLaunch('first_launch'),
+  reprompt('reprompt'),
+  settings('settings');
+
+  const ConsentSource(this.wireName);
+  final String wireName;
+}
+
+class ConsentDecision {
+  const ConsentDecision({
+    required this.granted,
+    required this.policyVersion,
+    required this.decidedAt,
+  });
+
+  final bool granted;
+
+  /// Empty when decided on the device before the policy was known
+  final String policyVersion;
+  final DateTime decidedAt;
+}
+
+/// Response of GET and POST /v1/consent.
+class ServerConsentState {
+  const ServerConsentState({
+    required this.mode,
+    required this.policyVersion,
+    required this.decisions,
+    required this.canAskAgainAt,
+  });
+
+  factory ServerConsentState.fromJson(Map<String, Object?> json) {
+    final policy = readObject(json['policy']);
+    final rawDecisions = json['decisions'];
+    if (rawDecisions is! List<Object?>) {
+      throw const FormatException('Expected list "decisions"');
+    }
+
+    final decisions = <ConsentPurpose, ConsentDecision>{};
+    for (final item in rawDecisions) {
+      final decision = readObject(item);
+      final name = readString(decision, 'purpose');
+      final purpose = ConsentPurpose.values.where((p) => p.name == name).firstOrNull;
+      // Other purposes (ads) are not handled by this part of the SDK
+      if (purpose == null) continue;
+      decisions[purpose] = ConsentDecision(
+        granted: readBool(decision, 'granted'),
+        policyVersion: readString(decision, 'policyVersion'),
+        decidedAt: readDateTime(decision, 'decidedAt'),
+      );
+    }
+
+    return ServerConsentState(
+      mode: readWireEnum(ConsentMode.values, (m) => m.wireName, policy, 'mode'),
+      policyVersion: readString(policy, 'version'),
+      decisions: decisions,
+      canAskAgainAt: json['canAskAgainAt'] == null ? null : readDateTime(json, 'canAskAgainAt'),
+    );
+  }
+
+  final ConsentMode mode;
+  final String policyVersion;
+  final Map<ConsentPurpose, ConsentDecision> decisions;
+  final DateTime? canAskAgainAt;
+}
+
+bool readBool(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value is bool) return value;
+  throw FormatException('Expected boolean "$key"');
+}
+
+/// Reads an enum stored under a different name on the wire (e.g. snake_case)
+T readWireEnum<T extends Enum>(
+  List<T> values,
+  String Function(T) wireName,
+  Map<String, Object?> json,
+  String key,
+) {
+  final name = readString(json, key);
+  for (final value in values) {
+    if (wireName(value) == name) return value;
+  }
+  throw FormatException('Unknown value "$name" for "$key"');
+}
