@@ -1,6 +1,7 @@
 # Platform development
 
-How to run, change and test the platform server locally.
+How to run, change and test the platform server locally. A short list of
+every command, including the SDK and the demo app: [commands.md](../commands.md).
 
 ## Requirements
 
@@ -35,7 +36,7 @@ pnpm keys:generate                                  # paste the printed line int
 
 # 4. Database schema and a demo app
 pnpm db:migrate
-pnpm db:seed                                        # prints the demo app id
+pnpm db:seed                                        # demo app, policies; prints the app id
 
 # 5. Run
 pnpm dev
@@ -81,6 +82,9 @@ Docker the variables come from Compose.
 | `ACCESS_TOKEN_TTL_SECONDS` | `900` | Access token lifetime |
 | `REFRESH_TOKEN_TTL_DAYS` | `90` | Refresh token lifetime |
 | `REFRESH_REUSE_GRACE_SECONDS` | `30` | Retry window for a rotated refresh token |
+| `PLATFORM_TRACKING_PLAN_PATH` | `../tracking-plan/platform.json` | Standard platform events, read at start-up |
+| `GEOIP_DB_PATH` | not set | Country database (`.mmdb`); without it the country of events is empty |
+| `GOOGLE_WEB_CLIENT_ID` | not set | Read by `pnpm db:seed` only: registers the Google web client for the demo app |
 
 When adding a variable: add it to the schema in `config.ts`, to
 `.env.example`, and to your own `.env`. Never put real secrets into
@@ -100,7 +104,8 @@ All run from `platform/`.
 | `pnpm start` | Run the compiled server (production) |
 | `pnpm db:generate --name <name>` | Generate a migration from schema changes |
 | `pnpm db:migrate` | Apply pending migrations |
-| `pnpm db:seed` | Create the `demo` app (refuses to run in production) |
+| `pnpm db:seed` | Create the `demo` app, its platforms, consent policy and Google client (refuses to run in production) |
+| `pnpm plan:upload <slug> <file>` | Upload an app's tracking plan JSON (see [events.md](events.md)) |
 | `pnpm keys:generate` | Print a new `JWT_SIGNING_KEYS` line |
 
 Always run both `pnpm test` and `pnpm typecheck`: Vitest does not check types,
@@ -121,8 +126,13 @@ and the type checker does not run code.
 - Name constraints explicitly when they are composite: Postgres truncates
   names longer than 63 characters, and explicit names make errors readable.
 
-Current migrations: `0000_init_apps`, `0001_init_identity`,
-`0002_add_superseded_revoke_reason`, `0003_add_auth_nonces`.
+- Postgres features Drizzle cannot express (partitioned tables, functions)
+  go into a hand-written migration: `pnpm db:generate --custom --name <what>`
+  creates an empty SQL file. Separate statements with `--> statement-breakpoint`.
+  Such tables are described for queries in a file that drizzle-kit does not
+  scan (example: `events/events-table.ts`).
+
+The list of migrations is the `migrations/` folder.
 
 ## Tests
 
@@ -132,7 +142,10 @@ Current migrations: `0000_init_apps`, `0001_init_identity`,
   (`platform_test` locally). It is created on the first run; migrations are
   applied before every run.
 - Every test file resets the database in `beforeEach`
-  (`TRUNCATE apps.apps CASCADE` empties everything) and seeds a test app.
+  (`TRUNCATE apps.apps CASCADE` empties every table that references apps)
+  and seeds a test app. `events.events` and `events.event_ids` have no
+  foreign keys and keep rows from earlier tests: event tests must not assume
+  they are empty.
 - Test files run one after another (`fileParallelism: false`) because they
   share the database.
 - A throwaway signing key is generated per run; tests need no secrets.
@@ -146,7 +159,7 @@ Helpers in `test/`:
 
 | File | Provides |
 |------|----------|
-| `helpers.ts` | `resetDatabase`, `seedApp`, `signUpViaApi`, `linkFakeGoogleAccount` |
+| `helpers.ts` | `resetDatabase`, `seedApp` (with an "ask everyone" consent policy), `signUpViaApi`, `linkFakeGoogleAccount` |
 | `fake-google.ts` | `installFakeGoogle`, `signFakeGoogleToken` with any claims, attacker key |
 
 Tests live next to the code as `*.test.ts`. New behaviour comes with tests in

@@ -13,7 +13,7 @@ external dependency)
 | Foundation (config, DB, errors, logs, tests) | Done | Done | Planned |
 | 1. Identity | Partial | Partial | Planned |
 | Consent | Done | Done | Planned |
-| 2. Event tracking | Planned (designed) | Planned (designed) | Planned |
+| 2. Event tracking | Done | Done | Planned |
 | 3. Offline-first sync | Planned | Planned | — |
 | 4. Remote config & A/B tests | Planned | Planned | Planned |
 | 5. Subscriptions | Planned | Planned | Planned |
@@ -49,8 +49,8 @@ external dependency)
 | Package `renvix_sdk` with Android plugin part, strict analyzer | Done |
 | Secure key-value storage (Keystore / Keychain, this device only) | Done |
 | Platform API client with typed errors (`ApiException`, `ServerException`, `NetworkException`) | Done |
+| SQLite database for the event queue (`sqflite`) | Done |
 | Demo app (`sdk/flutter/example`) as a test bench | Done |
-| Local SQLite database for the SDK (`drift`) | Planned: with events |
 
 ## 1. Identity
 
@@ -91,15 +91,17 @@ Details: [identity.md](identity.md).
 
 ## Consent
 
+Details: [identity.md](identity.md#get-v1consent).
+
 | Item | Status |
 |------|--------|
 | Policies per region, append-only consent log (schema) | Done |
 | `GET /v1/consent`, `POST /v1/consent` with clock correction | Done |
 | "Ask everyone" policy for the demo app (`db:seed`) | Done |
 | SDK: local decisions, state, offline queue, user changes | Done |
+| SDK: withdrawal removes queued analytics events | Done |
 | Demo: consent screen and settings toggles | Done, verified on the emulator |
-| GeoIP (country from IP) | Planned: with events |
-| SDK: withdrawal removes queued analytics events | Planned: with events |
+| GeoIP (country from IP) | Partial: code done, database file with deployment |
 | Ads consent (Google UMP, TCF) and "consent or pay" | Planned: with the ads system |
 
 Decisions:
@@ -114,25 +116,47 @@ Decisions:
 
 ## 2. Event tracking
 
-Designed; implementation after consent.
+Details: [events.md](events.md).
+
+### Server
 
 | Item | Status |
 |------|--------|
-| Tracking plan (YAML): platform events here, app events in the app repo, uploaded to the server | Planned |
-| Code generation: Dart functions and server validation | Planned |
-| `POST /v1/events`: batches up to 100, dedup by `event_id`, clock skew correction, country from IP | Planned |
-| Monthly partitioned `events.events` table | Planned |
-| Invalid events stored with a flag and alerted, not dropped | Planned |
-| SDK queue in its own SQLite database, batched upload, offline limit | Planned |
-| Standard platform events (`app_installed`, `app_opened`, sessions, `app_updated`, account and consent events) | Planned |
-| Queue flushed before a user switch (logout, merge) | Planned |
+| Tracking plan format, validation of events against the plan | Done |
+| Platform plan read at start-up; app plans uploaded with `pnpm plan:upload` | Done |
+| Compatibility check on upload (plan only grows) | Done |
+| `POST /v1/events`: batches up to 100, dedup by `event_id`, clock correction, consent check | Done |
+| Monthly partitioned `events.events`, partitions created ahead | Done |
+| Invalid events stored with a flag and logged as a warning | Done |
+| Country from IP | Partial: code done, database file with deployment |
+| Anonymization after 26 months and on account deletion | Planned: needs the job queue |
+| Cleanup of old `event_ids` | Planned: needs the job queue |
+| Alerts on invalid events | Planned: with the alerts system |
+| Plan upload from the admin panel or CI | Planned |
+
+### Flutter SDK
+
+| Item | Status |
+|------|--------|
+| Code generator: typed Dart and normalized JSON, compatibility check | Done |
+| Event queue in SQLite, batched upload, offline limit | Done |
+| Consent: analytics not recorded without consent, dropped on withdrawal | Done |
+| Upload every 30 seconds, after 50 events, on background, before a user switch | Done |
+| Standard events: install, update, app opens, sessions, screens | Done, verified on the emulator |
+| Session id on every event | Done |
+| Demo: own tracking plan and events section | Done, verified on the emulator |
+| Device details with analytics consent | Planned: with the installation update |
 
 Decisions:
 
 - Categories: `essential` (always recorded) and `analytics` (only with
   consent; not even stored on the device without it).
 - No free text typed by the person in event properties.
-- Session: a new one after 30 minutes in the background.
+- Before consent only two facts are kept (install and session start not yet
+  recorded); they are recorded once consent is given.
+- Session: a new one after 30 minutes in the background, also across process
+  restarts.
+- Account and consent changes are not events: the server has them in its tables.
 - Raw events with identifiers kept 26 months, then anonymized (identifiers
   removed, time rounded to the day); deleted or anonymized on account
   deletion. Aggregates and trained models kept without limit. Needs legal review.
@@ -159,5 +183,6 @@ Decisions:
 |------|--------|
 | Dockerfile for the platform (build, migrate, start) | Planned |
 | Production Compose: postgres, platform, admin, caddy | Planned |
+| GeoIP country database (DB-IP Lite) on the server | Planned |
 | Encrypted off-site database backups | Planned |
 | VPN access to the admin | Planned |

@@ -2,16 +2,17 @@
 
 What the Flutter SDK must do to work with the platform server as it exists
 today, and what a wrapper app must provide on top of it. This is the contract
-for the SDK, not its final API. Server details: [identity.md](../platform/identity.md).
+for the SDK, not its final API. Server details: [identity.md](../platform/identity.md),
+[events.md](../platform/events.md).
 
 ## Responsibilities
 
 | Layer | Owns |
 |-------|------|
-| SDK (`sdk/flutter/`) | Installation id, tokens, every call to the platform server, retries, refresh, provider sign-in plumbing, user change notifications |
-| Wrapper app | Screens and texts, the merge dialog, deciding what counts as local progress, reacting to user changes, app-specific configuration |
+| SDK (`sdk/flutter/`) | Installation id, tokens, every call to the platform server, retries, refresh, provider sign-in plumbing, user change notifications, consent state, event queue and standard events |
+| Wrapper app | Screens and texts, the merge dialog, the consent screen, its own tracking plan, deciding what counts as local progress, reacting to user changes, app-specific configuration |
 
-The wrapper app never talks to identity endpoints directly and never touches tokens.
+The wrapper app never talks to platform endpoints directly and never touches tokens.
 
 ## Configuration
 
@@ -21,9 +22,9 @@ The app initializes the SDK once at startup with:
 - `baseUrl`: platform server URL
 - Google `serverClientId`: the OAuth client ID that must appear in the token's
   `aud`; it must be registered in `apps.oauth_clients`
-- app version and build (from the package info)
 
-The platform (`android` / `ios`) and OS version are detected by the SDK.
+The platform (`android` / `ios`), OS version, app version and build are
+detected by the SDK.
 
 ## Local storage
 
@@ -34,13 +35,18 @@ The platform (`android` / `ios`) and OS version are detected by the SDK.
 | Refresh token | Secure storage | Long-lived secret |
 | Refresh token expiry | Secure storage | Decide whether a session can be resumed |
 | Access token | Memory only | Short-lived; a new one is obtained on start |
+| Consent decisions, unsent decisions | Secure storage | Apply at once, also offline |
+| Usage state: last app version, current session | Secure storage | Install and update detection, sessions across restarts |
+| Event queue | SQLite file `app_platform_events.db` | Events wait here until the server confirms them |
 
 Secure storage: `flutter_secure_storage` (Android Keystore, iOS Keychain).
 
-**Exclude SDK storage from Android Auto Backup.** A restored installation id
-on a second device would make two devices share one id; restored encrypted
-values also fail to decrypt because Keystore keys are not backed up. On iOS,
-store Keychain items with "this device only" accessibility for the same reason.
+**Exclude SDK storage from Android Auto Backup and device transfer**: the
+secure storage (`sharedpref`) and the event database. A restored
+installation id on a second device would make two devices share one id;
+restored encrypted values also fail to decrypt because Keystore keys are not
+backed up; queued events belong to this installation. On iOS, store Keychain
+items with "this device only" accessibility for the same reason.
 
 Uninstalling the app erases this storage. A reinstalled app is a new
 anonymous user unless the person signs in with Google again. The app should
@@ -48,28 +54,17 @@ therefore offer "save progress with Google" at good moments.
 
 ## Start-up
 
-`AppPlatform.init(appId, baseUrl)` collects the app and OS version and starts the
-session. It never fails because of the network and waits for the server at
-most 3 seconds; the rest continues in the background.
+1. Read the installation id. If there is none, generate a UUID and store it.
+2. If a refresh token is stored and not expired, refresh (see below).
+3. Otherwise call `POST /v1/auth/anonymous`.
+   - `409 installation_exists`: generate a new installation id, store it, retry.
+4. Store user id and tokens **before** doing anything else with them.
+5. Load stored consent decisions, then sync them with the server in the background.
+6. Open the event queue, record the standard launch events, send queued events.
 
-1. Read the installation id. If there is none, generate a UUID and store it
-   immediately, before any request: data collected offline is tied to it.
-2. If a session is stored, refresh it. Offline, the stored user id is used
-   and the refresh is retried on the next request.
-3. If no session is stored, sign up anonymously.
-   - `409 installation_exists`: retry with a new installation id (up to 3 times).
-   - Offline: `userId` stays null; sign-up is retried on the next request.
-     The app keeps working locally.
-4. Persist tokens **before** using them.
-
-Configuration errors (for example `400 unknown_app`) make `init` fail.
-
-`userChanges` reports switches after `init`. The user created during start-up
-is read from `userId` after `init`.
-
-An app that cannot work without the server (for example, all content comes
-from it) checks `userId` after `init` and asks the person to connect. This
-is the app's decision, not the SDK's.
+`init` never fails because of the network: it waits for the server at most
+3 seconds, then continues offline. Calls that need the server wait for the
+start-up to finish.
 
 ## Authenticated requests
 
@@ -90,19 +85,16 @@ is the app's decision, not the SDK's.
   grace window; after that the server treats it as stolen.
 - Network errors and `5xx`: keep the current tokens and retry later with
   backoff. Never discard a session because of a network problem.
-- `401 invalid_refresh_token` (or a refresh token expired on the device):
-  the session is dead. Sign up **first** with a new installation id (the old
-  one still exists on the server and would get `409`), then replace the
-  stored installation id and session and emit `sessionReset`. If sign-up
-  fails because the device is offline, nothing is replaced: the app keeps
-  the old user id until the next attempt. If the person had linked Google,
-  they get their account back by signing in again.
+- `401 invalid_refresh_token`: the session is dead. Clear the stored session,
+  **generate a new installation id** (the old one still exists on the server
+  and would get `409`), sign up anonymously and emit a user change. If the
+  person had linked Google, they get their account back by signing in again.
 
 ## Google sign-in
 
 1. `POST /v1/auth/nonce` → `nonce`.
-2. Run Google sign-in (`google_sign_in` / Credential Manager) with
-   `serverClientId` and the **raw** nonce. Google returns an ID token.
+2. Run Google sign-in (Credential Manager) with `serverClientId` and the
+   **raw** nonce. Google returns an ID token.
 3. `POST /v1/auth/google` with `{ idToken }`.
 4. Handle the result:
 
@@ -150,12 +142,13 @@ must exchange it on the first link. Not available until the server supports it.
   anonymous user on the same device) and emit a user change.
 - `409 no_linked_account`: anonymous users cannot sign out. The app offers to
   link Google instead.
+- Queued events of the current user are sent first, while their token is
+  still valid.
 
 ## Current user
 
 `GET /v1/me` returns the user id, installation, platform, creation time and
-linked providers with emails. The SDK caches it and refreshes it after any
-sign-in change.
+linked providers with emails. The SDK refreshes it after any sign-in change.
 
 ## Consent
 
@@ -166,7 +159,7 @@ sign-in change.
   allowed, the policy version and when the app may ask again.
 - `record(analytics:, personalization:, source:)` applies at once, also
   offline, and is sent to the server when possible: at start-up, on the next
-  decision or on a user change.
+  decision, before events are sent or on a user change.
 - The status is computed on the device with the server's rules. An unknown
   policy (never reached the server) means "ask".
 - Nothing is allowed without a decision, except under mode `none`.
@@ -179,6 +172,71 @@ sign-in change.
 The app draws the consent screen: nothing pre-selected, rejecting as easy as
 accepting, must be answered. It shows the screen whenever the status becomes
 `needsDecision` and offers toggles in its settings.
+
+## Events
+
+### Tracking plan and generated code
+
+The app keeps its own `tracking_plan.yaml` (format:
+[events.md](../platform/events.md#tracking-plan)) and generates typed code
+with the SDK's generator:
+
+```bash
+dart run renvix_sdk:events tracking_plan.yaml \
+  --dart-out=lib/events.g.dart --json-out=tracking_plan.json
+```
+
+The JSON is uploaded to the server for every new plan version
+(`pnpm plan:upload <app slug> tracking_plan.json`) **before** a release that
+sends the new events. Otherwise they are stored as invalid. The app uses the
+generated class:
+
+```dart
+final events = AppEvents(platform.events);
+events.lessonCompleted(lessonId: 'a1', mistakes: 2);
+```
+
+### Queue and upload
+
+`AppPlatform.events` (`EventManager`):
+
+- **Consent first.** Analytics events are not recorded at all without
+  analytics consent. Essential events are always recorded. Withdrawing
+  consent deletes queued analytics events.
+- **Durable queue.** Every event is written to SQLite with a UUID v7 id, the
+  device time, the current user, session and app version. It stays there
+  until the server accepts or rejects it.
+- **Batches** of up to 100 events. Upload triggers:
+  - every 30 seconds;
+  - after 50 new events;
+  - when the app goes to the background;
+  - before a user switch (logout, merge), while the old token still works;
+  - at start-up.
+- **Single flight**: one upload at a time.
+- **Pending consent first.** Unsent consent decisions are sent before events,
+  so the server does not reject them with `no_consent`.
+- **Offline.** Failures keep the events queued for the next trigger. Beyond
+  10,000 queued events the oldest analytics events are dropped; essential
+  ones are kept.
+- **User switch.** Events of a previous user still in the queue cannot be
+  sent with the new user's token and are dropped.
+- **Never crash the app.** Storage and network errors in background uploads
+  are swallowed; `flush()` throws for callers who want to know.
+- `queuedCount()` returns the queue size, for debug screens.
+
+### Standard events and sessions
+
+The SDK records install, update, app opens and sessions itself (list:
+[events.md](../platform/events.md#standard-platform-events)) from the app
+lifecycle (`AppLifecycleListener`):
+
+- A session continues if the app returns within 30 minutes, even after the
+  process was stopped. Its id is attached to every event
+  (`AppPlatform.sessionId`).
+- Before analytics consent only the facts "install not recorded" and
+  "session start not recorded" are kept. The events follow once consent is given.
+- `platform.trackScreen('lesson_list')` records `screen_viewed`. The app calls
+  it on every screen change with short, fixed screen names.
 
 ## User changes
 
@@ -200,21 +258,22 @@ in [identity.md](../platform/identity.md#error-codes)). Network failures,
 - Google Cloud setup: OAuth client for Android with the package name and the
   SHA-1 of every signing key (debug, upload, Play app signing), plus the
   server client ID registered in `apps.oauth_clients`.
+- Android backup rules excluding the SDK storage and event database.
 - An account screen: current state (anonymous or linked email), "Sign in with
   Google", "Sign out".
-- The merge dialog and the `hasLocalProgress` decision.
+- The merge dialog, skipped when the device has no progress worth keeping.
+- The consent screen and consent toggles in settings.
+- Its tracking plan, generated code, and the plan uploaded before release.
+- `trackScreen` on screen changes.
 - Handling of user changes: reload or clear local data.
 - A prompt to save progress with Google after meaningful progress.
-- Later: consent screen, account deletion entry point (required by Google
-  Play), paywall.
+- Later: account deletion entry point (required by Google Play), paywall.
 
 ## Later systems in the SDK
 
 Each will get its own section when the server part is designed:
 
 - **Device details**: collected and sent only with analytics consent.
-- **Events**: typed events generated from the tracking plan, local queue in
-  SQLite, batched upload, essential vs analytics categories.
 - **Sync**: local database, outbox, pull by cursor.
 - **Config & experiments**: cached config with built-in defaults, exposure events.
 - **Subscriptions**: Play Billing with `obfuscatedAccountId`, server
@@ -223,7 +282,16 @@ Each will get its own section when the server part is designed:
 
 ## Testing
 
-The SDK is tested against a mocked HTTP client: single-flight refresh under
-concurrent calls, retry after `401`, `409 installation_exists`, session reset,
-the merge flow with the same ID token, and persistence order. An end-to-end
-check runs a demo app against a local platform server.
+The SDK is tested on the host without a device:
+
+- API client and session manager against a fake API: single-flight refresh
+  under concurrent calls, retry after `401`, `409 installation_exists`,
+  session reset, persistence order, offline start.
+- Google sign-in with a fake credential provider: the merge flow with the
+  same ID token.
+- Consent and events against an in-memory SQLite (`sqflite_common_ffi`):
+  consent gating, withdrawal, offline queue, user switches, upload triggers.
+- Standard events with a fake clock: sessions, restarts, updates, consent later.
+
+An end-to-end check runs the demo app on the emulator against a local
+platform server.

@@ -16,7 +16,7 @@ deployment.
 | `platform/`      | Platform server, one for all apps       | Node.js, Fastify, TypeScript |
 | `admin/`         | Admin panel and dashboards              | Next.js, JavaScript          |
 | `sdk/flutter/`   | Package that apps depend on             | Dart, Flutter                |
-| `tracking-plan/` | Event schema and code generator         | YAML                         |
+| `tracking-plan/` | Standard platform events                | YAML, generated JSON         |
 | `packages/`      | Shared JS packages                      | Node.js                      |
 | `infra/`         | Docker Compose, Caddy, backups          | Docker                       |
 | `docs/`          | Architecture and module documentation   | Markdown                     |
@@ -25,10 +25,14 @@ deployment.
 
 - [Architecture](docs/architecture.md): components, data model principles,
   security, privacy, key decisions
+- [Commands](docs/commands.md): every command for the server, database, SDK,
+  event generation and the demo app
 - [Platform development](docs/platform/development.md): local setup, scripts,
   migrations, tests, conventions
 - [Identity module](docs/platform/identity.md): accounts, tokens, endpoints,
-  sign-in and merge
+  sign-in, merge and consent
+- [Events module](docs/platform/events.md): tracking plan, standard events,
+  sessions, ingestion, storage and retention
 - [Status](docs/platform/status.md): what is done and what is left
 - [Flutter SDK requirements](docs/sdk/requirements.md): what the SDK and the
   wrapper app must do
@@ -56,5 +60,6 @@ Details in [docs/platform/development.md](docs/platform/development.md).
 
 ## Status
 
-Stage 0. Identity is implemented on the server (Apple sign-in deferred);
-the Flutter SDK is next. See [status](docs/platform/status.md).
+Stage 0. Identity (Android; Apple sign-in deferred), consent and event
+tracking work end to end on the server, the Flutter SDK and the demo app.
+Next: remote config and A/B tests. See [status](docs/platform/status.md).
