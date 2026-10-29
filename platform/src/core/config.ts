@@ -46,6 +46,8 @@ const envSchema = z.object({
   // A rotated refresh token may be retried within this window
   // (e.g. after a lost response) without revoking the family
   REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).default(30),
+  // Standard platform events, generated from tracking-plan/platform.yaml
+  PLATFORM_TRACKING_PLAN_PATH: z.string().default('../tracking-plan/platform.json'),
 });
 
 export type Config = z.infer<typeof envSchema>;

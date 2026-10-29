@@ -29,6 +29,13 @@
       "when": 1793096558122,
       "tag": "0003_add_auth_nonces",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793280572478,
+      "tag": "0004_add_tracking_plans",
+      "breakpoints": true
     }
   ]
 }

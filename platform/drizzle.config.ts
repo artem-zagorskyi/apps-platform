@@ -7,7 +7,7 @@ export default defineConfig({
   schema: './src/modules/*/schema.ts',
   out: './migrations',
   // Only our own Postgres schemas are managed, never "public" or system ones
-  schemaFilter: ['apps', 'identity'],
+    schemaFilter: ['apps', 'identity', 'events'],
   strict: true,
   verbose: true,
 });
