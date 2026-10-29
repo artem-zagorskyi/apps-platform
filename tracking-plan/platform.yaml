@@ -1,0 +1,57 @@
+# Standard events recorded by the SDK in every app.
+#
+# Generate, from sdk/flutter:
+#   dart run bin/events.dart ../../tracking-plan/platform.yaml --platform \
+#     --dart-out=lib/src/events/platform_events.g.dart \
+#     --json-out=../../tracking-plan/platform.json
+#
+# The plan only grows: never remove or rename events or properties,
+# mark them deprecated instead.
+
+events:
+  app_installed:
+    category: analytics
+    description: First launch of this installation
+
+  app_updated:
+    category: analytics
+    description: The app version changed since the previous launch
+    properties:
+      previous_version:
+        type: string
+        max_length: 32
+        description: App version before the update, e.g. 1.2.0
+      previous_build:
+        type: string
+        max_length: 32
+        description: Build number before the update
+
+  app_opened:
+    category: analytics
+    description: The app came to the foreground
+    properties:
+      cold_start:
+        type: boolean
+        description: True if the process was started, false if resumed from the background
+
+  session_started:
+    category: analytics
+    description: A new session began (first open, or after 30 minutes in the background)
+
+  session_ended:
+    category: analytics
+    description: A session ended after 30 minutes in the background; recorded when the next one starts
+    properties:
+      duration_seconds:
+        type: integer
+        min: 0
+        description: Time in the foreground during the session
+
+  screen_viewed:
+    category: analytics
+    description: A screen was shown
+    properties:
+      screen:
+        type: string
+        max_length: 64
+        description: Screen name chosen by the app, e.g. paywall or lesson_list
