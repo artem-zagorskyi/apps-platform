@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { config } from '../src/core/config.js';
 import { db, pool } from '../src/core/db.js';
-import { appPlatforms, apps, oauthClients } from '../src/modules/apps/schema.js';
+import { appPlatforms, apps, consentPolicies, oauthClients } from '../src/modules/apps/schema.js';
 
 // Creates a "demo" app with Android and iOS platforms for local development.
 // With GOOGLE_WEB_CLIENT_ID set, also registers it for Google sign-in.
@@ -24,6 +24,18 @@ await db
     { appId: demo.id, platform: 'android', bundleId: 'com.example.demo' },
     { appId: demo.id, platform: 'ios', bundleId: 'com.example.demo' },
   ])
+  .onConflictDoNothing();
+
+// Ask everyone: a German business needs consent for analytics worldwide
+await db
+  .insert(consentPolicies)
+  .values({
+    appId: demo.id,
+    region: '*',
+    mode: 'optional',
+    policyVersion: '2026-10-29',
+    repromptAfterDays: 180,
+  })
   .onConflictDoNothing();
 
 // Read directly, not through config: only this script needs it

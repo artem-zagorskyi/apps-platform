@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { db } from '../src/core/db.js';
-import { appPlatforms, apps } from '../src/modules/apps/schema.js';
+import { appPlatforms, apps, consentPolicies } from '../src/modules/apps/schema.js';
 import { authIdentities } from '../src/modules/identity/schema.js';
 
 // Removes all rows. Every table references apps.apps directly or
@@ -11,7 +11,8 @@ export async function resetDatabase(): Promise<void> {
   await db.execute(sql`truncate table apps.apps cascade`);
 }
 
-// Registers a test app on both platforms and returns its id
+// Registers a test app on both platforms with the "ask everyone" consent
+// policy (version v1) and returns its id
 export async function seedApp(): Promise<string> {
   const [app] = await db.insert(apps).values({ slug: 'test', name: 'Test' }).returning();
   if (!app) throw new Error('Failed to seed the test app');
@@ -20,6 +21,13 @@ export async function seedApp(): Promise<string> {
     { appId: app.id, platform: 'android', bundleId: 'com.example.test' },
     { appId: app.id, platform: 'ios', bundleId: 'com.example.test' },
   ]);
+
+  await db.insert(consentPolicies).values({
+    appId: app.id,
+    region: '*',
+    mode: 'optional',
+    policyVersion: 'v1',
+  });
 
   return app.id;
 }

@@ -9,6 +9,7 @@ import { isDatabaseReachable } from './core/db.js';
 import { AppError } from './core/errors.js';
 import { serializeRequest } from './core/logging.js';
 import { identityRoutes } from './modules/identity/routes.js';
+import { consentRoutes } from './modules/identity/consent-routes.js';
 
 export interface BuildAppOptions {
   // Tests only: receive log lines at info level instead of the configured output
@@ -82,6 +83,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   // Feature modules
   await app.register(identityRoutes);
+  
+  await app.register(consentRoutes);
 
   return app;
 }
