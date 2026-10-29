@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -11,8 +12,10 @@ import 'auth/google_credentials.dart';
 import 'auth/google_sign_in_flow.dart';
 import 'consent/consent_manager.dart';
 import 'consent/consent_store.dart';
+import 'events/app_usage.dart';
 import 'events/event_manager.dart';
 import 'events/event_queue.dart';
+import 'events/platform_events.g.dart';
 import 'session/session_manager.dart';
 import 'storage/session_store.dart';
 
@@ -26,6 +29,9 @@ class AppPlatform {
     this._googleSignIn,
     this.consent,
     this.events,
+    this._platformEvents,
+    this._usage,
+    this._lifecycle,
   );
 
   /// How long init waits for the server. A stored session is available
@@ -38,6 +44,11 @@ class AppPlatform {
   final SessionManager _session;
   final PlatformApi _api;
   final GoogleSignInFlow? _googleSignIn;
+  final PlatformEvents _platformEvents;
+  final AppUsageTracker _usage;
+  // Kept so lifecycle callbacks stay registered for the app's lifetime
+  // ignore: unused_field
+  final AppLifecycleListener _lifecycle;
 
   /// App and device details collected by the SDK and sent to the server.
   /// More details will be added only with analytics consent.
@@ -79,6 +90,9 @@ class AppPlatform {
     http.Client? httpClient,
   ) async {
     try {
+      // Plugins and lifecycle callbacks need the Flutter binding
+      WidgetsFlutterBinding.ensureInitialized();
+
       final client = await _collectClientInfo(appId);
       final api = PlatformApi(baseUri: baseUrl, client: httpClient ?? http.Client());
       final storage = SecureKeyValueStore();
@@ -105,7 +119,6 @@ class AppPlatform {
       await consent.load();
       unawaited(consent.trySync());
 
-      // Events queued in an earlier run are sent as soon as possible
       final events = EventManager(
         session: session,
         consent: consent,
@@ -113,9 +126,38 @@ class AppPlatform {
         queue: await SqliteEventQueue.open(),
         client: client,
       )..start();
+      final platformEvents = PlatformEvents(events);
+
+      // Install, update, app opens and sessions
+      final usage = AppUsageTracker(
+        store: storage,
+        events: platformEvents,
+        consent: consent.state,
+        client: client,
+        flush: events.tryFlush,
+      );
+      events.sessionIdProvider = () => usage.sessionId;
+      await usage.start();
+
+      final lifecycle = AppLifecycleListener(
+        onShow: () => unawaited(usage.onForeground()),
+        onHide: () => unawaited(usage.onBackground()),
+      );
+
+      // Events queued in an earlier run are sent as soon as possible
       unawaited(events.tryFlush());
 
-      return _instance = AppPlatform._(session, api, client, googleSignIn, consent, events);
+      return _instance = AppPlatform._(
+        session,
+        api,
+        client,
+        googleSignIn,
+        consent,
+        events,
+        platformEvents,
+        usage,
+        lifecycle,
+      );
     } catch (_) {
       _initializing = null;
       rethrow;
@@ -128,9 +170,16 @@ class AppPlatform {
   /// Stable id of this app installation
   String? get installationId => _session.installationId;
 
+  /// Current session id, attached to every event
+  String? get sessionId => _usage.sessionId;
+
   /// The device switched to another user after init: reload or clear
   /// everything tied to the previous user
   Stream<UserChange> get userChanges => _session.userChanges;
+
+  /// Records that a screen was shown (screen_viewed). [screen] is a short
+  /// name chosen by the app, e.g. paywall or lesson_list.
+  void trackScreen(String screen) => _platformEvents.screenViewed(screen: screen);
 
   /// Makes sure the device has a user and a fresh access token.
   /// Throws NetworkException / ServerException while the server is unreachable.

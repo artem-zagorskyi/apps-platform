@@ -51,6 +51,8 @@ class EventManager implements EventTracker {
   int _recordedSinceTrim = 0;
   bool _analyticsAllowed = false;
   bool _disposed = false;
+  /// Current session id, provided by the usage tracker
+  String? Function()? sessionIdProvider;
 
   /// Called by the SDK at start-up
   void start() {
@@ -94,8 +96,7 @@ class EventManager implements EventTracker {
       name: name,
       category: category,
       occurredAt: _clock(),
-      // Sessions come with the standard events
-      sessionId: null,
+      sessionId: sessionIdProvider?.call(),
       userId: _session.userId,
       appVersion: _client.appVersion,
       appBuild: _client.appBuild,
@@ -127,6 +128,12 @@ class EventManager implements EventTracker {
     } catch (_) {
       // Storage failure: nothing is lost, the next trigger retries
     }
+  }
+
+  /// Number of events waiting on the device, including ones being written
+  Future<int> queuedCount() async {
+    await Future.wait(_writes.toList());
+    return _queue.count();
   }
 
   Future<void> _enqueue(QueuedEvent event) async {

@@ -1,0 +1,17 @@
+# Events of the demo app.
+#
+# Generate, from sdk/flutter/example:
+#   dart run renvix_sdk:events tracking_plan.yaml \
+#     --dart-out=lib/events.g.dart --json-out=tracking_plan.json
+#
+# Upload to the server, from platform:
+#   pnpm plan:upload demo ../sdk/flutter/example/tracking_plan.json
+
+events:
+  demo_action_tapped:
+    category: analytics
+    description: A button on the demo screen was tapped
+    properties:
+      action:
+        type: enum
+        values: [ensure_session, load_profile, sign_in_with_google, sign_out, show_consent]

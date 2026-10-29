@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:renvix_sdk/renvix_sdk.dart';
 
 import 'consent_screen.dart';
+import 'events.g.dart';
 
 // Set with --dart-define-from-file=dev.json (see dev.example.json)
 const _appId = String.fromEnvironment('PLATFORM_APP_ID');
@@ -41,8 +42,10 @@ class DemoHomePage extends StatefulWidget {
 class _DemoHomePageState extends State<DemoHomePage> {
   final List<String> _log = [];
   AppPlatform? _platform;
+  AppEvents? _events;
   PlatformUser? _profile;
   StreamSubscription<UserChange>? _changes;
+  int? _queuedEvents;
   bool _busy = false;
   bool _consentScreenOpen = false;
 
@@ -71,10 +74,16 @@ class _DemoHomePageState extends State<DemoHomePage> {
           googleServerClientId: _googleServerClientId,
         );
         _changes = platform.userChanges.listen(_onUserChange);
-        setState(() => _platform = platform);
+        setState(() {
+          _platform = platform;
+          // Typed events generated from tracking_plan.yaml
+          _events = AppEvents(platform.events);
+        });
 
         platform.consent.state.addListener(_onConsentChanged);
         _onConsentChanged();
+        platform.trackScreen('home');
+        await _refreshQueue();
       });
 
   // Another user now owns the device: drop everything of the previous one.
@@ -116,6 +125,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
         'consent (${source.name}): analytics ${choice.analytics}, '
         'personalization ${choice.personalization}',
       );
+      await _refreshQueue();
     } finally {
       _consentScreenOpen = false;
     }
@@ -129,23 +139,38 @@ class _DemoHomePageState extends State<DemoHomePage> {
           personalization: personalization,
           source: ConsentSource.settings,
         );
+        await _refreshQueue();
+      });
+
+  Future<void> _refreshQueue() async {
+    final count = await _platform?.events.queuedCount();
+    if (mounted) setState(() => _queuedEvents = count);
+  }
+
+  Future<void> _sendEvents() => _run('events', () async {
+        await _platform?.events.flush();
+        await _refreshQueue();
       });
 
   Future<void> _ensureSession() => _run('session', () async {
+        _events?.demoActionTapped(action: DemoActionTappedAction.ensureSession);
         await _platform?.ensureSession();
-        setState(() {});
+        await _refreshQueue();
       });
 
   Future<void> _loadProfile() => _run('profile', () async {
         final platform = _platform;
         if (platform == null) return;
+        _events?.demoActionTapped(action: DemoActionTappedAction.loadProfile);
         final profile = await platform.me();
         setState(() => _profile = profile);
+        await _refreshQueue();
       });
 
   Future<void> _signInWithGoogle() => _run('google', () async {
         final platform = _platform;
         if (platform == null) return;
+        _events?.demoActionTapped(action: DemoActionTappedAction.signInWithGoogle);
 
         final result = await platform.signInWithGoogle(resolveConflict: _chooseMergeStrategy);
         _addLog('google result: ${result.name}');
@@ -154,15 +179,18 @@ class _DemoHomePageState extends State<DemoHomePage> {
           final profile = await platform.me();
           setState(() => _profile = profile);
         }
+        await _refreshQueue();
       });
 
   Future<void> _logout() => _run('logout', () async {
         final platform = _platform;
         if (platform == null) return;
+        _events?.demoActionTapped(action: DemoActionTappedAction.signOut);
 
         await platform.logout();
         final profile = await platform.me();
         setState(() => _profile = profile);
+        await _refreshQueue();
       });
 
   // The demo always asks. A real app returns keepTarget without asking
@@ -237,6 +265,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
             'User',
             platform == null ? null : (platform.userId ?? 'not created yet (offline?)'),
           ),
+          _Field('Session', platform?.sessionId),
           if (profile != null) ...[
             _Field(
               'Account',
@@ -275,11 +304,33 @@ class _DemoHomePageState extends State<DemoHomePage> {
                         canAct ? (value) => unawaited(_changeConsent(personalization: value)) : null,
                   ),
                   TextButton(
-                    onPressed: canAct ? () => unawaited(_askForConsent(ConsentSource.reprompt)) : null,
+                    onPressed: canAct
+                        ? () {
+                            _events?.demoActionTapped(action: DemoActionTappedAction.showConsent);
+                            unawaited(_askForConsent(ConsentSource.reprompt));
+                          }
+                        : null,
                     child: const Text('Show consent screen'),
                   ),
                 ],
               ),
+            ),
+            const Divider(height: 32),
+            Text('Events', style: titleStyle),
+            const SizedBox(height: 8),
+            _Field('Queued', _queuedEvents?.toString()),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: canAct ? () => unawaited(_refreshQueue()) : null,
+                  child: const Text('Refresh'),
+                ),
+                OutlinedButton(
+                  onPressed: canAct ? _sendEvents : null,
+                  child: const Text('Send now'),
+                ),
+              ],
             ),
             const Divider(height: 32),
             Text('Collected on this device', style: titleStyle),

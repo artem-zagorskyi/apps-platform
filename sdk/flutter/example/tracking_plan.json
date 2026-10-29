@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "events": {
+    "demo_action_tapped": {
+      "category": "analytics",
+      "description": "A button on the demo screen was tapped",
+      "properties": {
+        "action": {
+          "type": "enum",
+          "required": true,
+          "values": [
+            "ensure_session",
+            "load_profile",
+            "sign_in_with_google",
+            "sign_out",
+            "show_consent"
+          ]
+        }
+      }
+    }
+  }
+}
