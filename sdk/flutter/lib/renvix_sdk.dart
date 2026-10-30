@@ -12,6 +12,7 @@ export 'src/api/models.dart'
         PlatformUser;
 export 'src/app_platform.dart';
 export 'src/auth/google_sign_in_flow.dart' show GoogleSignInResult, ResolveMergeConflict;
+export 'src/config/config_source.dart';
 export 'src/consent/consent_manager.dart' show ConsentManager, ConsentState, ConsentStatus;
 export 'src/errors.dart';
 export 'src/events/event_manager.dart' show EventManager;
