@@ -4,7 +4,7 @@ import { z } from 'zod';
 // remote_config.yaml (same keys as the YAML).
 
 // Same rule as event names
-const nameSchema = z
+export const nameSchema = z
   .string()
   .max(64)
   .regex(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/, 'must be snake_case');

@@ -57,6 +57,13 @@
       "when": 1793396824682,
       "tag": "0007_add_parameter_schemas",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793397669176,
+      "tag": "0008_add_config_versions",
+      "breakpoints": true
     }
   ]
 }
