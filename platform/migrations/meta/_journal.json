@@ -50,6 +50,13 @@
       "when": 1793281254289,
       "tag": "0006_create_events_table",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793396824682,
+      "tag": "0007_add_parameter_schemas",
+      "breakpoints": true
     }
   ]
 }

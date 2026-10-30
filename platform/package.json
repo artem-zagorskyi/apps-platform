@@ -14,7 +14,8 @@
     "db:seed": "tsx --env-file=.env scripts/seed-dev.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "plan:upload": "tsx --env-file=.env scripts/upload-plan.ts"
+    "plan:upload": "tsx --env-file=.env scripts/upload-plan.ts",
+    "config:schema": "tsx --env-file=.env scripts/upload-config-schema.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
