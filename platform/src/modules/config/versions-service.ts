@@ -13,6 +13,8 @@ import {
 import { configVersions } from './schema.js';
 import { getParameterSchema } from './schemas-service.js';
 
+const CONFIG_CACHE_MS = 60_000;
+
 export interface ConfigVersion {
   number: number;
   document: ConfigDocument;
@@ -20,7 +22,11 @@ export interface ConfigVersion {
   createdAt: Date;
 }
 
+export type ActiveConfig = Pick<ConfigVersion, 'number' | 'document'>;
+
 type PublishResult = { status: 'created' | 'unchanged'; version: number };
+
+const activeConfigs = new Map<string, { config: ActiveConfig | null; loadedAt: number }>();
 
 // The latest version, or the one with this number; null if there is none
 export async function getConfigVersion(appId: string, number?: number): Promise<ConfigVersion | null> {
@@ -42,6 +48,21 @@ export async function getConfigVersion(appId: string, number?: number): Promise<
   return row ?? null;
 }
 
+// The version in effect, cached for a minute. Every config request needs it.
+export async function getActiveConfig(appId: string): Promise<ActiveConfig | null> {
+  const cached = activeConfigs.get(appId);
+  if (cached && Date.now() - cached.loadedAt < CONFIG_CACHE_MS) return cached.config;
+
+  const latest = await getConfigVersion(appId);
+  const config = latest ? { number: latest.number, document: latest.document } : null;
+  activeConfigs.set(appId, { config, loadedAt: Date.now() });
+  return config;
+}
+
+export function clearConfigCache(): void {
+  activeConfigs.clear();
+}
+
 // Publishes a config document as a new version after checking it on its own,
 // against the app's declared parameters and against the previous version
 export async function publishConfig(
@@ -59,7 +80,7 @@ export async function publishConfig(
     throw new AppError(400, 'invalid_config', `Invalid config:\n${errors.join('\n')}`);
   }
 
-  return db.transaction(async (tx): Promise<PublishResult> => {
+  const result = await db.transaction(async (tx): Promise<PublishResult> => {
     // One publish per app at a time, so version numbers stay sequential.
     // Released automatically at the end of the transaction.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`config:${appId}`}, 0))`);
@@ -97,4 +118,8 @@ export async function publishConfig(
     });
     return { status: 'created', version: number };
   });
+
+  // This process serves the new version at once; others within a minute
+  if (result.status === 'created') activeConfigs.delete(appId);
+  return result;
 }

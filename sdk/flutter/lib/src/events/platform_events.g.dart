@@ -12,6 +12,7 @@ const Set<String> platformEventNames = {
   'session_started',
   'session_ended',
   'screen_viewed',
+  'experiment_exposed',
 };
 
 /// Typed events from platform.yaml.
@@ -74,6 +75,23 @@ class PlatformEvents {
   }) {
     _tracker.track('screen_viewed', EventCategory.analytics, {
       'screen': screen,
+    });
+  }
+
+  /// A parameter decided by an experiment was read for the first time in the session
+  ///
+  /// - [experiment]: Experiment key from the config, e.g. paywall_test
+  /// - [variant]: Variant the user is assigned to, e.g. control
+  /// - [configVersion]: Config version the assignment came from
+  void experimentExposed({
+    required String experiment,
+    required String variant,
+    required int configVersion,
+  }) {
+    _tracker.track('experiment_exposed', EventCategory.analytics, {
+      'experiment': experiment,
+      'variant': variant,
+      'config_version': configVersion,
     });
   }
 }

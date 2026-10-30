@@ -55,3 +55,20 @@ events:
         type: string
         max_length: 64
         description: Screen name chosen by the app, e.g. paywall or lesson_list
+
+  experiment_exposed:
+    category: analytics
+    description: A parameter decided by an experiment was read for the first time in the session
+    properties:
+      experiment:
+        type: string
+        max_length: 64
+        description: Experiment key from the config, e.g. paywall_test
+      variant:
+        type: string
+        max_length: 64
+        description: Variant the user is assigned to, e.g. control
+      config_version:
+        type: integer
+        min: 1
+        description: Config version the assignment came from

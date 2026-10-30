@@ -63,6 +63,30 @@
           "max_length": 64
         }
       }
+    },
+    "experiment_exposed": {
+      "category": "analytics",
+      "description": "A parameter decided by an experiment was read for the first time in the session",
+      "properties": {
+        "experiment": {
+          "type": "string",
+          "required": true,
+          "description": "Experiment key from the config, e.g. paywall_test",
+          "max_length": 64
+        },
+        "variant": {
+          "type": "string",
+          "required": true,
+          "description": "Variant the user is assigned to, e.g. control",
+          "max_length": 64
+        },
+        "config_version": {
+          "type": "integer",
+          "required": true,
+          "description": "Config version the assignment came from",
+          "min": 1
+        }
+      }
     }
   }
 }
