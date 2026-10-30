@@ -360,4 +360,40 @@ void main() {
     });
     expect(result.accepted, ['e-1']);
   });
+
+    test('gets the config with the app version and the ETag', () async {
+    late http.Request sent;
+    final api = _api((request) async {
+      sent = request;
+      return http.Response(
+        jsonEncode({
+          'version': 3,
+          'values': {'ads_enabled': false},
+          'experiments': [
+            {'key': 'paywall_test', 'variant': 'trial', 'parameters': ['paywall_variant'], 'forced': true},
+          ],
+        }),
+        200,
+        headers: {'etag': '"v3"'},
+      );
+    });
+
+    final response = await api.getConfig('access-1', appVersion: '1.2.0', etag: '"v2"');
+
+    expect(sent.method, 'GET');
+    expect(sent.url.path, endsWith('/v1/config'));
+    expect(sent.url.queryParameters, {'appVersion': '1.2.0'});
+    expect(sent.headers['if-none-match'], '"v2"');
+    expect(sent.headers['authorization'], 'Bearer access-1');
+    expect(response?.etag, '"v3"');
+    expect(response?.config.version, 3);
+    expect(response?.config.values, {'ads_enabled': false});
+    expect(response?.config.experiments.single.forced, isTrue);
+  });
+
+  test('returns null when the config did not change', () async {
+    final api = _api((_) async => http.Response('', 304));
+
+    expect(await api.getConfig('access-1', appVersion: '1.0.0', etag: '"v3"'), isNull);
+  });
 }

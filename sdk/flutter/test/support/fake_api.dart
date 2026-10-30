@@ -205,4 +205,33 @@ class FakeApi implements PlatformApi {
   // Not used in these tests; required by the interface
   @override
   Future<PlatformUser> getMe(String accessToken) => throw UnimplementedError();
+
+  // Config server: one config per user; the ETag is "<user>:<version>"
+  final configRequests = <({String userId, String appVersion, String? etag})>[];
+  final _configByUser = <String, ServerConfig>{};
+  AppPlatformException? configFailure;
+
+  /// Runs before the answer, e.g. to hold it until the test continues
+  Future<void> Function()? onGetConfig;
+
+  void setServerConfig(String userId, ServerConfig config) => _configByUser[userId] = config;
+
+  @override
+  Future<ConfigResponse?> getConfig(
+    String accessToken, {
+    required String appVersion,
+    String? etag,
+  }) async {
+    final userId = _userOf(accessToken);
+    configRequests.add((userId: userId, appVersion: appVersion, etag: etag));
+    await onGetConfig?.call();
+
+    final failure = configFailure;
+    if (failure != null) throw failure;
+
+    final config = _configByUser[userId] ?? const ServerConfig(version: 0, values: {}, experiments: []);
+    final tag = '"$userId:${config.version}"';
+    if (etag == tag) return null;
+    return ConfigResponse(config: config, etag: tag);
+  }
 }

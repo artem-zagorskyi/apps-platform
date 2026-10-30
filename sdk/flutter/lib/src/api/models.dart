@@ -328,3 +328,79 @@ class EventBatchResult {
   /// Never stored (e.g. no consent): drop from the queue too
   final List<({String eventId, String reason})> rejected;
 }
+
+/// One experiment the user is in, as reported by the server
+class ConfigExperiment {
+  const ConfigExperiment({
+    required this.key,
+    required this.variant,
+    required this.parameters,
+    this.forced = false,
+  });
+
+  factory ConfigExperiment.fromJson(Map<String, Object?> json) => ConfigExperiment(
+        key: readString(json, 'key'),
+        variant: readString(json, 'variant'),
+        parameters: readStringList(json, 'parameters'),
+        forced: json['forced'] == true,
+      );
+
+  final String key;
+  final String variant;
+
+  /// Parameters whose value comes from this experiment
+  final List<String> parameters;
+
+  /// A tester's forced variant: no exposures are recorded
+  final bool forced;
+
+  Map<String, Object?> toJson() => {
+        'key': key,
+        'variant': variant,
+        'parameters': parameters,
+        if (forced) 'forced': true,
+      };
+}
+
+/// Config of the user as computed by the server
+class ServerConfig {
+  const ServerConfig({required this.version, required this.values, required this.experiments});
+
+  factory ServerConfig.fromJson(Map<String, Object?> json) {
+    final rawExperiments = json['experiments'];
+    if (rawExperiments is! List<Object?>) {
+      throw const FormatException('Expected a list "experiments"');
+    }
+    return ServerConfig(
+      version: readInt(json, 'version'),
+      values: readObject(json['values']),
+      experiments: [for (final e in rawExperiments) ConfigExperiment.fromJson(readObject(e))],
+    );
+  }
+
+  /// 0 when nothing is published yet
+  final int version;
+  final Map<String, Object?> values;
+  final List<ConfigExperiment> experiments;
+
+  Map<String, Object?> toJson() => {
+        'version': version,
+        'values': values,
+        'experiments': [for (final e in experiments) e.toJson()],
+      };
+}
+
+class ConfigResponse {
+  const ConfigResponse({required this.config, required this.etag});
+
+  final ServerConfig config;
+  final String? etag;
+}
+
+List<String> readStringList(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value is! List<Object?> || value.any((e) => e is! String)) {
+    throw FormatException('Expected a list of strings "$key"');
+  }
+  return value.cast<String>();
+}

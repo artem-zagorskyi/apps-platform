@@ -10,6 +10,7 @@ import 'api/models.dart';
 import 'api/platform_api.dart';
 import 'auth/google_credentials.dart';
 import 'auth/google_sign_in_flow.dart';
+import 'config/config_manager.dart';
 import 'consent/consent_manager.dart';
 import 'consent/consent_store.dart';
 import 'events/app_usage.dart';
@@ -31,6 +32,7 @@ class AppPlatform {
     this.events,
     this._platformEvents,
     this._usage,
+    this.config,
     this._lifecycle,
   );
 
@@ -60,6 +62,10 @@ class AppPlatform {
   /// Event tracking. Pass it to the generated events class:
   /// `final events = AppEvents(platform.events);`
   final EventManager events;
+
+  /// Remote config and experiments. Pass it to the generated config class:
+  /// `final config = AppConfig(platform.config);`
+  final ConfigManager config;
 
   /// The initialized SDK. Throws if [init] has not completed.
   static AppPlatform get instance {
@@ -139,8 +145,23 @@ class AppPlatform {
       events.sessionIdProvider = () => usage.sessionId;
       await usage.start();
 
+      // The stored config at once; on the first launch a short wait for the server
+      final config = ConfigManager(
+        session: session,
+        api: api,
+        store: storage,
+        client: client,
+        events: platformEvents,
+        consent: consent.state,
+        sessionId: () => usage.sessionId,
+      );
+      await config.start();
+
       final lifecycle = AppLifecycleListener(
-        onShow: () => unawaited(usage.onForeground()),
+        onShow: () {
+          unawaited(usage.onForeground());
+          config.onForeground();
+        },
         onHide: () => unawaited(usage.onBackground()),
       );
 
@@ -156,6 +177,7 @@ class AppPlatform {
         events,
         platformEvents,
         usage,
+        config,
         lifecycle,
       );
     } catch (_) {

@@ -123,6 +123,47 @@ class PlatformApi {
     return _parse(() => EventBatchResult.fromJson(json));
   }
 
+  /// The user's config. Null when [etag] still matches (304 Not Modified).
+  Future<ConfigResponse?> getConfig(
+    String accessToken, {
+    required String appVersion,
+    String? etag,
+  }) async {
+    final request = http.Request(
+      'GET',
+      _resolve('/v1/config').replace(queryParameters: {'appVersion': appVersion}),
+    )
+      ..headers['accept'] = 'application/json'
+      ..headers['authorization'] = 'Bearer $accessToken';
+    if (etag != null) request.headers['if-none-match'] = etag;
+
+    final response = await _execute(request);
+    if (response.statusCode == 304) return null;
+    if (response.statusCode != 200) throw _errorOf(response);
+
+    final json = _tryDecodeObject(response.body);
+    if (json == null) throw const ServerException(statusCode: 200, message: 'Malformed response body');
+    return _parse(
+      () => ConfigResponse(config: ServerConfig.fromJson(json), etag: response.headers['etag']),
+    );
+  }
+
+  // Same mapping as in _send, for requests that handle some statuses themselves
+  static AppPlatformException _errorOf(http.Response response) {
+    final status = response.statusCode;
+    final decoded = _tryDecodeObject(response.body);
+    final code = decoded?['error'];
+    final message = decoded?['message'];
+    final text = message is String ? message : 'HTTP $status';
+
+    if (status == 429 || status >= 500) return ServerException(statusCode: status, message: text);
+    return ApiException(
+      statusCode: status,
+      code: code is String ? code : ApiErrorCode.unknown,
+      message: text,
+    );
+  }
+
   // UTC with millisecond precision; Dart would otherwise add microseconds
   static String _isoMillis(DateTime time) =>
       DateTime.fromMillisecondsSinceEpoch(time.millisecondsSinceEpoch, isUtc: true)
