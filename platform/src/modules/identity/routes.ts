@@ -7,6 +7,7 @@ import { signInWithGoogle } from './provider-sign-in.js';
 import { mergeStrategyEnum } from './schema.js';
 import { getMe, logout, refreshSession, signUpAnonymous } from './service.js';
 import { publicJwks } from './tokens.js';
+import { requestAccountDeletion } from './deletion.js';
 
 const anonymousSignUpBody = z.object({
   appId: z.uuid(),
@@ -142,5 +143,16 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { response: { 200: meResponse } },
     },
     async (request) => getMe(authOf(request)),
+  );
+
+  // Deletes the account; the device continues with a fresh anonymous user
+  app.delete(
+    '/v1/me',
+    {
+      preHandler: requireAuth,
+      schema: { response: { 200: tokenPairResponse } },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request) => requestAccountDeletion(authOf(request)),
   );
 };

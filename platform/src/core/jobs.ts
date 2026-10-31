@@ -79,13 +79,22 @@ export async function stopJobs(): Promise<void> {
   if (instance) await instance.stop({ graceful: true });
 }
 
-// Queues a job. With a transaction, the job exists only if the transaction commits.
-export async function sendJob(name: string, data: Record<string, unknown>, tx?: Tx): Promise<void> {
+// Queues a job. With a transaction, the job exists only if the transaction
+// commits. startAfterSeconds delays the first run.
+export async function sendJob(
+  name: string,
+  data: Record<string, unknown>,
+  tx?: Tx,
+  options: { startAfterSeconds?: number } = {},
+): Promise<void> {
   if (!boss) {
     if (fallbackSender) return fallbackSender(name, data);
     throw new Error('Jobs are not started');
   }
-  await boss.send(name, data, tx ? { db: fromDrizzle(tx, sql) } : {});
+  await boss.send(name, data, {
+    ...(tx ? { db: fromDrizzle(tx, sql) } : {}),
+    ...(options.startAfterSeconds ? { startAfter: options.startAfterSeconds } : {}),
+  });
 }
 
 type JobSender = (name: string, data: Record<string, unknown>) => Promise<void>;
