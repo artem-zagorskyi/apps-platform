@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "parameters": {
+    "welcome_title": {
+      "type": "string",
+      "description": "Title of the config section",
+      "default": "Platform SDK demo",
+      "max_length": 64
+    },
+    "daily_goal_minutes": {
+      "type": "integer",
+      "description": "Daily goal in minutes",
+      "default": 10,
+      "min": 5,
+      "max": 60
+    },
+    "paywall_variant": {
+      "type": "enum",
+      "description": "Which paywall layout to show",
+      "default": "classic",
+      "values": [
+        "classic",
+        "trial_first"
+      ]
+    },
+    "ads_enabled": {
+      "type": "boolean",
+      "description": "Whether ads are shown; the kill switch of the demo",
+      "default": true
+    }
+  }
+}

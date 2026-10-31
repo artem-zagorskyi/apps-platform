@@ -5,6 +5,7 @@ import 'package:renvix_sdk/renvix_sdk.dart';
 
 import 'consent_screen.dart';
 import 'events.g.dart';
+import 'remote_config.g.dart';
 
 // Set with --dart-define-from-file=dev.json (see dev.example.json)
 const _appId = String.fromEnvironment('PLATFORM_APP_ID');
@@ -43,6 +44,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
   final List<String> _log = [];
   AppPlatform? _platform;
   AppEvents? _events;
+  AppConfig? _config;
   PlatformUser? _profile;
   StreamSubscription<UserChange>? _changes;
   int? _queuedEvents;
@@ -78,6 +80,8 @@ class _DemoHomePageState extends State<DemoHomePage> {
           _platform = platform;
           // Typed events generated from tracking_plan.yaml
           _events = AppEvents(platform.events);
+          // Typed parameters generated from remote_config.yaml
+          _config = AppConfig(platform.config);
         });
 
         platform.consent.state.addListener(_onConsentChanged);
@@ -150,6 +154,15 @@ class _DemoHomePageState extends State<DemoHomePage> {
   Future<void> _sendEvents() => _run('events', () async {
         await _platform?.events.flush();
         await _refreshQueue();
+      });
+
+  // A newer config goes to pending; it applies at the next launch or with Activate
+  Future<void> _fetchConfig() => _run('config fetch', () async {
+        await _platform?.config.fetch();
+      });
+
+  Future<void> _activateConfig() => _run('config activate', () async {
+        await _platform?.config.activate();
       });
 
   Future<void> _ensureSession() => _run('session', () async {
@@ -314,6 +327,56 @@ class _DemoHomePageState extends State<DemoHomePage> {
                   ),
                 ],
               ),
+            ),
+            const Divider(height: 32),
+            Text('Config', style: titleStyle),
+            const SizedBox(height: 8),
+            // Rebuilds when the values in use change: user change, Activate
+            ListenableBuilder(
+              listenable: platform.config,
+              builder: (context, _) {
+                final config = _config;
+                if (config == null) return const SizedBox.shrink();
+                final manager = platform.config;
+                final fetchedAt = manager.fetchedAt;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Field('Version', manager.version == 0 ? 'none yet' : '${manager.version}'),
+                    _Field(
+                      'Fetched',
+                      fetchedAt == null ? 'never' : fetchedAt.toLocal().toString().substring(0, 19),
+                    ),
+                    _Field('Pending', manager.hasPending ? 'yes: next launch or Activate' : 'no'),
+                    for (final experiment in manager.experiments)
+                      _Field(
+                        'Experiment',
+                        '${experiment.key}: ${experiment.variant}'
+                            '${experiment.forced ? ' (forced)' : ''}',
+                      ),
+                    const SizedBox(height: 8),
+                    // Typed values; reading a parameter of an experiment records an exposure
+                    _Field('Title', config.welcomeTitle),
+                    _Field('Daily goal', '${config.dailyGoalMinutes} min'),
+                    _Field('Paywall', config.paywallVariant.wireName),
+                    _Field('Ads', config.adsEnabled ? 'on' : 'off'),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: canAct ? _fetchConfig : null,
+                          child: const Text('Fetch'),
+                        ),
+                        OutlinedButton(
+                          onPressed: canAct && manager.hasPending ? _activateConfig : null,
+                          child: const Text('Activate'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
             const Divider(height: 32),
             Text('Events', style: titleStyle),

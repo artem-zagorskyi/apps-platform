@@ -1,0 +1,33 @@
+# Remote config parameters of the demo app.
+#
+# Generate, from sdk/flutter/example:
+#   dart run renvix_sdk:config remote_config.yaml \
+#     --dart-out=lib/remote_config.g.dart --json-out=remote_config.json
+#
+# Upload the declarations, from platform:
+#   pnpm config:schema demo ../sdk/flutter/example/remote_config.json
+#
+# Values and experiments live on the server (see config.demo.json):
+#   pnpm config:publish demo ../sdk/flutter/example/config.demo.json <comment>
+
+parameters:
+  welcome_title:
+    type: string
+    max_length: 64
+    default: Platform SDK demo
+    description: Title of the config section
+  daily_goal_minutes:
+    type: integer
+    min: 5
+    max: 60
+    default: 10
+    description: Daily goal in minutes
+  paywall_variant:
+    type: enum
+    values: [classic, trial_first]
+    default: classic
+    description: Which paywall layout to show
+  ads_enabled:
+    type: boolean
+    default: true
+    description: Whether ads are shown; the kill switch of the demo
