@@ -14,7 +14,7 @@ external dependency)
 | 1. Identity | Partial | Partial | Planned |
 | Consent | Done | Done | Planned |
 | 2. Event tracking | Done | Done | Planned |
-| 3. Offline-first sync | Planned | Planned | — |
+| 3. Offline-first sync | Designed, deferred | Designed, deferred | — |
 | 4. Remote config & A/B tests | Done | Done | Planned |
 | 5. Subscriptions | Planned | Planned | Planned |
 | 6. Attribution | Planned | Planned | — |
@@ -213,7 +213,7 @@ Decisions:
 
 | Item | Status |
 |------|--------|
-| Offline-first sync: library for app backends, outbox, cursor pull, per-field last-write-wins | Planned |
+| Offline-first sync: optional toolkit for app backends ([design](../sync/design.md)) | Designed; built with the first app that needs offline data |
 | Play Billing verification, RTDN, entitlements, restore | Planned |
 | App Store (StoreKit, server notifications) | Deferred |
 | Install Referrer, server-side conversions to ad networks | Planned |
