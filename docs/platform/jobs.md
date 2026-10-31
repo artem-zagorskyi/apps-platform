@@ -119,24 +119,19 @@ x-platform-signature: t=<unix seconds>,v1=<hex>
 - The same notification may arrive more than once (a lost response).
 - Without an endpoint the delivery is marked `no_endpoint` and not retried.
 
-### Verifying on the backend (Node.js)
+### Verifying on the backend
 
-```js
-import { createHmac, timingSafeEqual } from 'node:crypto';
+Use `verifyWebhook` from `@apps-platform/platform-client`
+([packages/platform-client](../../packages/platform-client/README.md)):
 
-// rawBody: the request body exactly as received, before JSON parsing
-export function verifyPlatformWebhook(rawBody, signatureHeader, secret, now = Date.now()) {
-  const match = /^t=(\d+),v1=([0-9a-f]{64})$/.exec(signatureHeader ?? '');
-  if (!match) return false;
-  const [, t, received] = match;
-
-  // Reject old requests: a captured notification cannot be replayed later
-  if (Math.abs(now / 1000 - Number(t)) > 5 * 60) return false;
-
-  const expected = createHmac('sha256', secret).update(`${t}.${rawBody}`).digest();
-  return timingSafeEqual(expected, Buffer.from(received, 'hex'));
-}
+```ts
+const event = verifyWebhook(rawBody, request.headers['x-platform-signature'], secret);
 ```
+
+It checks the HMAC over `<t>.<raw body>` in constant time, refuses
+signatures older than 5 minutes (a captured notification cannot be replayed
+later) and returns the parsed notification. The body must be passed exactly
+as received, before JSON parsing.
 
 Then drop deliveries whose `x-platform-delivery` id was already handled, and
 answer `2xx` only after the change is stored.
@@ -166,5 +161,4 @@ pnpm webhooks:set demo http://127.0.0.1:4000/platform-webhooks
 
 - Workers in their own process (when jobs start to slow down requests)
 - Redelivery of failed or `no_endpoint` notifications from the admin panel
-- A shared JS package with `verifyPlatformWebhook` for app backends
 - Purchase notifications (with subscriptions)

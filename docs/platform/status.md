@@ -43,6 +43,7 @@ external dependency)
 | Background job queue (pg-boss) in the server process, cleanup schedules | Done |
 | Encrypted secrets in the database (`DATA_ENCRYPTION_KEY`) | Done |
 | Webhooks to app backends: signed, retried for three days | Done |
+| `packages/platform-client` for app backends: token and webhook verification | Done |
 
 ### Flutter SDK
 
@@ -52,6 +53,7 @@ external dependency)
 | Secure key-value storage (Keystore / Keychain, this device only) | Done |
 | Platform API client with typed errors (`ApiException`, `ServerException`, `NetworkException`) | Done |
 | SQLite database for the event queue (`sqflite`) | Done |
+| Access for app backends: `accessToken`, `withAccessToken`, hooks before a user switch | Done |
 | Demo app (`sdk/flutter/example`) as a test bench | Done |
 
 ## 1. Identity

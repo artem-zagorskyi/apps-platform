@@ -164,6 +164,23 @@ class SessionManager {
     }
   }
 
+  /// Runs a request to a service that accepts platform tokens, such as the
+  /// app's own backend. When [unauthorized] says the token was refused, the
+  /// session is renewed and the request runs once more with a new token;
+  /// a second refusal is returned to the caller.
+  Future<T> withAccessToken<T>(
+    Future<T> Function(String accessToken) request, {
+    required bool Function(T response) unauthorized,
+  }) async {
+    final token = await accessToken();
+    final response = await request(token);
+    if (!unauthorized(response)) return response;
+
+    // Force a renewal, unless a parallel request already replaced this token
+    if (_accessToken == token) _accessToken = null;
+    return request(await accessToken());
+  }
+
   /// Switches to tokens issued by sign-in or logout.
   /// A renewal still in flight for the previous user is discarded.
   Future<void> applyTokens(TokenPair tokens, UserChangeReason reason) async {
@@ -177,14 +194,34 @@ class SessionManager {
     }
   }
 
-  /// Set by the event manager: sends queued data of the current user
-  /// before the device switches users on purpose (logout, merge)
-  Future<void> Function()? beforeUserSwitch;
+  final List<Future<void> Function()> _beforeUserSwitch = [];
 
-  /// Best effort: the switch goes ahead whether this succeeds or not
+  /// Longest a hook may delay a user switch
+  static const userSwitchHookTimeout = Duration(seconds: 10);
+
+  /// Runs [hook] before the device switches to another user (logout,
+  /// signing into an existing account), e.g. to send what the current user
+  /// still has queued. Returns a function that removes the hook.
+  void Function() addBeforeUserSwitch(Future<void> Function() hook) {
+    _beforeUserSwitch.add(hook);
+    return () {
+      _beforeUserSwitch.remove(hook);
+    };
+  }
+
+  /// Best effort: the switch goes ahead whatever the hooks do
   Future<void> prepareUserSwitch() async {
-    final hook = beforeUserSwitch;
-    if (hook != null) await hook();
+    await Future.wait([
+      for (final hook in List.of(_beforeUserSwitch)) _runHook(hook),
+    ]);
+  }
+
+  static Future<void> _runHook(Future<void> Function() hook) async {
+    try {
+      await hook().timeout(userSwitchHookTimeout);
+    } catch (_) {
+      // A failing or slow hook must not block a logout
+    }
   }
 
   /// Signs out on this device. The device gets a fresh anonymous user.

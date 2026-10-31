@@ -164,6 +164,14 @@ version published by the script up within a minute (or restart `pnpm dev`).
 | `--json-out` | Normalized declarations; the existing file is the previous version for the compatibility check |
 | `--class` | Name of the generated class, default `AppConfig` |
 
+## Package for app backends (from `packages/platform-client/`)
+
+| Task | Command |
+|------|---------|
+| Tests | `pnpm test` |
+| Type check | `pnpm typecheck` |
+| Build to `dist/` | `pnpm build` |
+
 ## Webhooks and jobs
 
 ```bash

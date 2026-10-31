@@ -209,6 +209,35 @@ class AppPlatform {
     await _session.accessToken();
   }
 
+  /// A valid platform access token for requests to the app's own backend,
+  /// renewed when needed. Prefer [withAccessToken], which also retries.
+  /// Throws NetworkException / ServerException while the platform is unreachable.
+  Future<String> accessToken() => _session.accessToken();
+
+  /// Runs a request to the app's own backend with a valid platform token.
+  /// When [unauthorized] says the backend refused it, the session is renewed
+  /// and the request repeated once:
+  ///
+  /// ```dart
+  /// final response = await platform.withAccessToken(
+  ///   (token) => http.get(uri, headers: {'authorization': 'Bearer $token'}),
+  ///   unauthorized: (r) => r.statusCode == 401,
+  /// );
+  /// ```
+  Future<T> withAccessToken<T>(
+    Future<T> Function(String accessToken) request, {
+    required bool Function(T response) unauthorized,
+  }) =>
+      _session.withAccessToken(request, unauthorized: unauthorized);
+
+  /// Runs [hook] before the device switches to another user: logout and
+  /// signing into an existing account, not an account deletion. Use it to
+  /// send unsaved data of the current user to the app's backend. Each hook
+  /// gets up to 10 seconds; failures do not stop the switch.
+  /// Returns a function that removes the hook.
+  void Function() addBeforeUserSwitch(Future<void> Function() hook) =>
+      _session.addBeforeUserSwitch(hook);
+
   /// The current user as the server sees it
   Future<PlatformUser> me() => _session.authorized(_api.getMe);
 

@@ -150,6 +150,30 @@ must exchange it on the first link. Not available until the server supports it.
 - Queued events of the current user are sent first, while their token is
   still valid.
 
+## Requests to the app's own backend
+
+An app backend accepts platform access tokens and verifies them with
+`createTokenVerifier` from `@apps-platform/platform-client` (signature by
+the platform's JWKS, issuer, `aud` = the app id, expiry).
+
+- `platform.accessToken()` returns a valid token, renewed when needed.
+- `platform.withAccessToken(request, unauthorized: ...)` runs a request with
+  the token; when `unauthorized` says the backend refused it, the session is
+  renewed once and the request repeated:
+
+  ```dart
+  final response = await platform.withAccessToken(
+    (token) => http.get(uri, headers: {'authorization': 'Bearer $token'}),
+    unauthorized: (r) => r.statusCode == 401,
+  );
+  ```
+
+- `platform.addBeforeUserSwitch(hook)` runs `hook` before logout and before
+  signing into an existing account, e.g. to send unsaved data of the current
+  user to the backend. Not before an account deletion. Each hook gets up to
+  10 seconds; failures do not stop the switch. Returns a function that
+  removes the hook. The event queue uses the same mechanism.
+
 ## Account deletion
 
 `platform.deleteAccount()` calls `DELETE /v1/me` (details:

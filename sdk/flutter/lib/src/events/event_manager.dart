@@ -47,6 +47,7 @@ class EventManager implements EventTracker {
   final Set<Future<void>> _writes = {};
   Future<void>? _flushing;
   Timer? _timer;
+  void Function()? _removeSwitchHook;
   int _recordedSinceFlush = 0;
   int _recordedSinceTrim = 0;
   bool _analyticsAllowed = false;
@@ -58,7 +59,7 @@ class EventManager implements EventTracker {
   void start() {
     _analyticsAllowed = _consent.state.value.analytics;
     _consent.state.addListener(_onConsentChanged);
-    _session.beforeUserSwitch = tryFlush;
+    _removeSwitchHook = _session.addBeforeUserSwitch(tryFlush);
 
     final interval = flushInterval;
     if (interval != null) {
@@ -72,7 +73,8 @@ class EventManager implements EventTracker {
     _disposed = true;
     _timer?.cancel();
     _consent.state.removeListener(_onConsentChanged);
-    _session.beforeUserSwitch = null;
+    _removeSwitchHook?.call();
+    _removeSwitchHook = null;
 
     await Future.wait(_writes.toList());
     final flushing = _flushing;
