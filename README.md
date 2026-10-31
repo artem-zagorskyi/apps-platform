@@ -35,6 +35,10 @@ deployment.
   sessions, ingestion, storage and retention
 - [Config module](docs/platform/config.md): remote config, A/B tests,
   assignment, experiment lifecycle, versions and exposures
+- [Jobs and webhooks](docs/platform/jobs.md): background jobs, schedules,
+  notifications to app backends and how to verify them
+- [Account deletion](docs/platform/account-deletion.md): deletion flow,
+  erasure, anonymization, what stays
 - [Status](docs/platform/status.md): what is done and what is left
 - [Flutter SDK requirements](docs/sdk/requirements.md): what the SDK and the
   wrapper app must do
@@ -46,6 +50,7 @@ cd infra && cp .env.example .env && docker compose -f docker-compose.dev.yml up 
 pnpm install
 cd platform && cp .env.example .env
 pnpm keys:generate      # paste the printed line into platform/.env
+pnpm keys:data          # paste the printed line into platform/.env
 pnpm db:migrate && pnpm db:seed
 pnpm dev
 ```
@@ -62,6 +67,6 @@ Details in [docs/platform/development.md](docs/platform/development.md).
 
 ## Status
 
-Stage 0. Identity (Android; Apple sign-in deferred), consent, event
-tracking, remote config and A/B tests work end to end on the server, the
-Flutter SDK and the demo app. See [status](docs/platform/status.md).
+Stage 0. Identity (Android; Apple sign-in deferred) with account deletion,
+consent, event tracking, remote config and A/B tests, background jobs and
+webhooks work end to end on the server, the Flutter SDK and the demo app. See [status](docs/platform/status.md).

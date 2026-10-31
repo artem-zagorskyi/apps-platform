@@ -150,6 +150,22 @@ must exchange it on the first link. Not available until the server supports it.
 - Queued events of the current user are sent first, while their token is
   still valid.
 
+## Account deletion
+
+`platform.deleteAccount()` calls `DELETE /v1/me` (details:
+[account-deletion.md](../platform/account-deletion.md)). It works for every
+user, also anonymous ones, and cannot be undone.
+
+- The device gets the fresh anonymous user from the response;
+  `userChanges` reports `accountDeleted`.
+- Unlike logout, events queued for the deleted user are **not** sent first;
+  the queue drops them.
+- Consent and config reset as for any user change: the new person is asked.
+- Offline it throws and nothing changes.
+
+The app asks for confirmation before calling it and offers it somewhere
+easy to find (Google Play requires it).
+
 ## Current user
 
 `GET /v1/me` returns the user id, installation, platform, creation time and
@@ -302,7 +318,7 @@ parameter where the person sees its effect, not in advance.
 ## User changes
 
 The SDK exposes a stream of user changes with the reason: `signed_up`,
-`merged` (with strategy), `logged_out`, `session_reset`. The app must react
+`merged` (with strategy), `logged_out`, `account_deleted`, `session_reset`. The app must react
 by reloading or clearing everything tied to the previous user: local domain
 database, caches, in-memory state. This is the most common source of bugs
 ("the previous user's data is still on screen").
@@ -330,7 +346,8 @@ in [identity.md](../platform/identity.md#error-codes)). Network failures,
 - `trackScreen` on screen changes.
 - Handling of user changes: reload or clear local data.
 - A prompt to save progress with Google after meaningful progress.
-- Later: account deletion entry point (required by Google Play), paywall.
+- An account deletion entry point with a confirmation (required by Google Play).
+- Later: paywall.
 
 ## Later systems in the SDK
 
@@ -357,6 +374,8 @@ The SDK is tested on the host without a device:
 - Config generator and value checks; the config manager against the fake API:
   first launch wait, late answers, pending and activate, ETag, user changes,
   offline, exposures.
+- Account deletion: device handover, queued events dropped, consent asked
+  again, offline.
 
 An end-to-end check runs the demo app on the emulator against a local
 platform server.

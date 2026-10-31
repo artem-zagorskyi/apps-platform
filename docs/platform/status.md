@@ -40,7 +40,9 @@ external dependency)
 | ESLint and Prettier | Planned |
 | CI (typecheck + tests on every push) | Planned |
 | API reference generated from zod schemas (`@fastify/swagger`) | Planned |
-| Background job queue (pg-boss) | Planned |
+| Background job queue (pg-boss) in the server process, cleanup schedules | Done |
+| Encrypted secrets in the database (`DATA_ENCRYPTION_KEY`) | Done |
+| Webhooks to app backends: signed, retried for three days | Done |
 
 ### Flutter SDK
 
@@ -72,9 +74,11 @@ Details: [identity.md](identity.md).
 | Google web client ID registered by `db:seed` from `.env` | Done |
 | Apple sign-in (iOS only), code exchange, encrypted Apple refresh token | Deferred: needs an Apple Developer account |
 | Installation update on launch (app version, device details with analytics consent, geo) | Planned |
-| Account deletion (`DELETE /v1/me`, scheduled erasure, Apple revocation) | Planned |
-| Merge delivery to app backends (signed webhook, retries, `notified_at`) | Planned: needs the job queue |
-| Cleanup of nonces of abandoned installations | Planned: needs the job queue |
+| Account deletion: `DELETE /v1/me`, erasure job, event anonymization, `user.deleted` | Done |
+| Web page for deletion requests (Google Play) | Planned: with the website or admin |
+| Apple token revocation on deletion | Deferred: with Apple sign-in |
+| Merge delivery to app backends (`user.merged` webhook) | Done |
+| Cleanup of old nonces and ended sessions | Done |
 | Trusted proxy for rate limits behind Caddy | Planned: with deployment |
 | Admin: register apps, platforms, OAuth clients | Planned (script for now: `pnpm db:seed`) |
 
@@ -87,7 +91,7 @@ Details: [identity.md](identity.md).
 | Google sign-in on Android (Credential Manager, own Kotlin code), merge dialog | Done, verified on the emulator |
 | Logout | Done, verified on the emulator |
 | Google / Apple sign-in on iOS | Deferred |
-| Account deletion | Planned |
+| Account deletion, demo button with confirmation | Done, verified on the emulator |
 
 ## Consent
 
@@ -129,8 +133,9 @@ Details: [events.md](events.md).
 | Monthly partitioned `events.events`, partitions created ahead | Done |
 | Invalid events stored with a flag and logged as a warning | Done |
 | Country from IP | Partial: code done, database file with deployment |
-| Anonymization after 26 months and on account deletion | Planned: needs the job queue |
-| Cleanup of old `event_ids` | Planned: needs the job queue |
+| Anonymization on account deletion | Done |
+| Anonymization after 26 months | Planned |
+| Cleanup of old `event_ids` (90 days) | Done |
 | Alerts on invalid events | Planned: with the alerts system |
 | Plan upload from the admin panel or CI | Planned |
 

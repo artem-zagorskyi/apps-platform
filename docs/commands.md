@@ -37,6 +37,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 cd ../platform && cp .env.example .env
 pnpm keys:generate                      # paste the printed line into .env
+pnpm keys:data                          # paste the printed line into .env
 pnpm db:migrate
 pnpm db:seed                            # prints the demo app id
 
@@ -71,6 +72,8 @@ In psql: `\dn` schemas, `\dt identity.*` tables, `\d <table>` columns,
 | Build | `pnpm build` |
 | Run the build | `pnpm start` |
 | New signing key | `pnpm keys:generate` |
+| New data encryption key | `pnpm keys:data` (changing it makes stored secrets unreadable) |
+| Set or remove an app's webhook endpoint | `pnpm webhooks:set <app slug> <url \| off>` |
 | Migration from schema changes | `pnpm db:generate --name <what_changed>` |
 | Empty migration for hand-written SQL | `pnpm db:generate --custom --name <what>` |
 | Apply migrations | `pnpm db:migrate` |
@@ -161,6 +164,19 @@ version published by the script up within a minute (or restart `pnpm dev`).
 | `--json-out` | Normalized declarations; the existing file is the previous version for the compatibility check |
 | `--class` | Name of the generated class, default `AppConfig` |
 
+## Webhooks and jobs
+
+```bash
+# A fake app backend on port 4000 that prints what it receives
+node -e "require('http').createServer((q,s)=>{let b='';q.on('data',d=>b+=d);q.on('end',()=>{console.log(q.headers['x-platform-signature']);console.log(b);s.end('ok')})}).listen(4000)"
+
+# from platform/
+pnpm webhooks:set demo http://127.0.0.1:4000/platform-webhooks
+```
+
+To see an account erasure without waiting 20 minutes, set
+`ACCESS_TOKEN_TTL_SECONDS=60` in `platform/.env` for a while (6 minutes).
+
 ## Demo app (from `sdk/flutter/example/`)
 
 | Task | Command |
@@ -198,13 +214,18 @@ from events.events order by received_at desc limit 20;
 -- Events that do not match the plan
 select name, invalid_reason, count(*) from events.events where not valid group by 1, 2;
 
+-- Jobs, webhooks and deletions
+select name, cron from pgboss.schedule order by name;
+select type, attempts, last_status, delivered_at from webhooks.deliveries order by created_at desc limit 5;
+select id, status, deletion_scheduled_at, deleted_at from identity.users where status <> 'active' order by created_at desc limit 5;
+
 -- Config versions and exposures
 select number, comment, created_at from config.versions order by number desc;
 select properties from events.events where name = 'experiment_exposed' order by received_at desc limit 5;
 ```
 
 More queries: [events.md](platform/events.md#useful-queries),
-[config.md](platform/config.md#useful-queries).
+[config.md](platform/config.md#useful-queries), [jobs.md](platform/jobs.md#useful-queries).
 
 ## Manual requests
 
