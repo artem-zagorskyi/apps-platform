@@ -106,6 +106,9 @@ All run from `platform/`.
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm db:seed` | Create the `demo` app, its platforms, consent policy and Google client (refuses to run in production) |
 | `pnpm plan:upload <slug> <file>` | Upload an app's tracking plan JSON (see [events.md](events.md)) |
+| `pnpm config:schema <slug> <file>` | Upload an app's parameter declarations (see [config.md](config.md)) |
+| `pnpm config:publish <slug> <file> [comment]` | Publish a config document as a new version |
+| `pnpm -s config:show <slug> [version]` | Print a config version as JSON |
 | `pnpm keys:generate` | Print a new `JWT_SIGNING_KEYS` line |
 
 Always run both `pnpm test` and `pnpm typecheck`: Vitest does not check types,

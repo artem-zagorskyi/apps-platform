@@ -76,6 +76,9 @@ In psql: `\dn` schemas, `\dt identity.*` tables, `\d <table>` columns,
 | Apply migrations | `pnpm db:migrate` |
 | Demo app, policies, Google client | `pnpm db:seed` |
 | Upload an app's tracking plan | `pnpm plan:upload <app slug> <path to tracking_plan.json>` |
+| Upload an app's parameter declarations | `pnpm config:schema <app slug> <path to remote_config.json>` |
+| Publish a config version | `pnpm config:publish <app slug> <path to config.json> [comment]` |
+| Print a config version | `pnpm -s config:show <app slug> [version]` |
 
 Before a commit: `pnpm test` and `pnpm typecheck`.
 
@@ -128,6 +131,36 @@ pnpm plan:upload demo ../sdk/flutter/example/tracking_plan.json
 
 Generated files are committed.
 
+## Remote config
+
+An app's parameters, after changing its `remote_config.yaml` (from the app
+folder, here `sdk/flutter/example/`):
+
+```bash
+dart run renvix_sdk:config remote_config.yaml \
+  --dart-out=lib/remote_config.g.dart --json-out=remote_config.json
+
+# then from platform/
+pnpm config:schema demo ../sdk/flutter/example/remote_config.json
+```
+
+Values and experiments (from `platform/`):
+
+```bash
+pnpm config:publish demo ../sdk/flutter/example/config.demo.json Paywall test
+pnpm -s config:show demo              # latest version as JSON
+pnpm -s config:show demo 3 > old.json # a rollback: publish old.json again
+```
+
+`-s` keeps pnpm's header line out of the output. The running server picks a
+version published by the script up within a minute (or restart `pnpm dev`).
+
+| Option | Meaning |
+|--------|---------|
+| `--dart-out` | Generated Dart file |
+| `--json-out` | Normalized declarations; the existing file is the previous version for the compatibility check |
+| `--class` | Name of the generated class, default `AppConfig` |
+
 ## Demo app (from `sdk/flutter/example/`)
 
 | Task | Command |
@@ -164,9 +197,14 @@ from events.events order by received_at desc limit 20;
 
 -- Events that do not match the plan
 select name, invalid_reason, count(*) from events.events where not valid group by 1, 2;
+
+-- Config versions and exposures
+select number, comment, created_at from config.versions order by number desc;
+select properties from events.events where name = 'experiment_exposed' order by received_at desc limit 5;
 ```
 
-More event queries: [events.md](platform/events.md#useful-queries).
+More queries: [events.md](platform/events.md#useful-queries),
+[config.md](platform/config.md#useful-queries).
 
 ## Manual requests
 

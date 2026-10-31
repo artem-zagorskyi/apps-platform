@@ -33,6 +33,8 @@ deployment.
   sign-in, merge and consent
 - [Events module](docs/platform/events.md): tracking plan, standard events,
   sessions, ingestion, storage and retention
+- [Config module](docs/platform/config.md): remote config, A/B tests,
+  assignment, experiment lifecycle, versions and exposures
 - [Status](docs/platform/status.md): what is done and what is left
 - [Flutter SDK requirements](docs/sdk/requirements.md): what the SDK and the
   wrapper app must do
@@ -60,6 +62,6 @@ Details in [docs/platform/development.md](docs/platform/development.md).
 
 ## Status
 
-Stage 0. Identity (Android; Apple sign-in deferred), consent and event
-tracking work end to end on the server, the Flutter SDK and the demo app.
-Next: remote config and A/B tests. See [status](docs/platform/status.md).
+Stage 0. Identity (Android; Apple sign-in deferred), consent, event
+tracking, remote config and A/B tests work end to end on the server, the
+Flutter SDK and the demo app. See [status](docs/platform/status.md).

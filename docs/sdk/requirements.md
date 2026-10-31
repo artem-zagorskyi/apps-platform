@@ -3,14 +3,14 @@
 What the Flutter SDK must do to work with the platform server as it exists
 today, and what a wrapper app must provide on top of it. This is the contract
 for the SDK, not its final API. Server details: [identity.md](../platform/identity.md),
-[events.md](../platform/events.md).
+[events.md](../platform/events.md), [config.md](../platform/config.md).
 
 ## Responsibilities
 
 | Layer | Owns |
 |-------|------|
-| SDK (`sdk/flutter/`) | Installation id, tokens, every call to the platform server, retries, refresh, provider sign-in plumbing, user change notifications, consent state, event queue and standard events |
-| Wrapper app | Screens and texts, the merge dialog, the consent screen, its own tracking plan, deciding what counts as local progress, reacting to user changes, app-specific configuration |
+| SDK (`sdk/flutter/`) | Installation id, tokens, every call to the platform server, retries, refresh, provider sign-in plumbing, user change notifications, consent state, event queue and standard events, remote config and exposures |
+| Wrapper app | Screens and texts, the merge dialog, the consent screen, its own tracking plan and parameter declarations, deciding what counts as local progress, reacting to user changes, app-specific configuration |
 
 The wrapper app never talks to platform endpoints directly and never touches tokens.
 
@@ -38,6 +38,7 @@ detected by the SDK.
 | Consent decisions, unsent decisions | Secure storage | Apply at once, also offline |
 | Usage state: last app version, current session | Secure storage | Install and update detection, sessions across restarts |
 | Event queue | SQLite file `app_platform_events.db` | Events wait here until the server confirms them |
+| Remote config: active, pending, ETag, fetch time | Secure storage | Values without a network; the next config waits for the next launch |
 
 Secure storage: `flutter_secure_storage` (Android Keystore, iOS Keychain).
 
@@ -61,9 +62,13 @@ therefore offer "save progress with Google" at good moments.
 4. Store user id and tokens **before** doing anything else with them.
 5. Load stored consent decisions, then sync them with the server in the background.
 6. Open the event queue, record the standard launch events, send queued events.
+7. Load the stored config. On the first launch wait up to 1.5 seconds for
+   the server; otherwise apply the config fetched during the previous launch
+   and fetch the next one in the background.
 
 `init` never fails because of the network: it waits for the server at most
-3 seconds, then continues offline. Calls that need the server wait for the
+3 seconds for the session (plus 1.5 seconds for the config on the first
+launch), then continues offline. Calls that need the server wait for the
 start-up to finish.
 
 ## Authenticated requests
@@ -238,6 +243,62 @@ lifecycle (`AppLifecycleListener`):
 - `platform.trackScreen('lesson_list')` records `screen_viewed`. The app calls
   it on every screen change with short, fixed screen names.
 
+## Remote config
+
+### Declarations and generated code
+
+The app keeps its own `remote_config.yaml` (format:
+[config.md](../platform/config.md#parameter-declarations)) and generates a
+typed class with the SDK's generator:
+
+```bash
+dart run renvix_sdk:config remote_config.yaml \
+  --dart-out=lib/remote_config.g.dart --json-out=remote_config.json
+```
+
+The JSON is uploaded with `pnpm config:schema <app slug> remote_config.json`
+**before** a config document uses the new parameters. The app reads values
+through the generated class:
+
+```dart
+final config = AppConfig(platform.config);
+if (config.paywallVariant == PaywallVariant.trialFirst) { ... }
+```
+
+Every getter returns the server value for this user, or the built-in
+default when there is none or it does not fit this app version. App tests can
+use fixed values: `AppConfig(const ConfigValues({'ads_enabled': false}))`.
+
+### When values change
+
+`AppPlatform.config` (`ConfigManager`) is a `Listenable`: listeners are
+notified whenever the values in use change.
+
+| Moment | Behaviour |
+|--------|-----------|
+| First launch | Wait up to 1.5 s for the server. An answer in time applies at once; a late one waits for the next launch |
+| Later launches | The config fetched during the previous launch applies; the next one is fetched in the background |
+| Back from the background | Fetch again when the last fetch is older than an hour |
+| User change (merge, logout, session reset) | The previous user's config is dropped at once (defaults); the new user's applies as soon as it arrives |
+| `config.fetch()` | Fetch now; the result waits (`hasPending`) |
+| `config.activate()` | Apply a fetched config now, e.g. for an urgent kill switch |
+
+Values never change in the middle of a launch on their own, so a person does
+not see a screen switch variants under their hands.
+
+Requests carry the running app version and the ETag of the newest fetched
+config; `304` keeps it. Answers that arrive after a user change belong to the
+previous user and are dropped. A stored config of another user is ignored
+at start-up.
+
+### Exposures
+
+Reading a parameter whose value comes from an experiment records
+`experiment_exposed` once per session and variant: not for forced testers,
+not when the value does not fit this app version, not without analytics
+consent (the next read after consent records it). The app therefore reads a
+parameter where the person sees its effect, not in advance.
+
 ## User changes
 
 The SDK exposes a stream of user changes with the reason: `signed_up`,
@@ -264,6 +325,8 @@ in [identity.md](../platform/identity.md#error-codes)). Network failures,
 - The merge dialog, skipped when the device has no progress worth keeping.
 - The consent screen and consent toggles in settings.
 - Its tracking plan, generated code, and the plan uploaded before release.
+- Its parameter declarations, generated config class, and the declarations
+  uploaded before a config uses them.
 - `trackScreen` on screen changes.
 - Handling of user changes: reload or clear local data.
 - A prompt to save progress with Google after meaningful progress.
@@ -275,7 +338,6 @@ Each will get its own section when the server part is designed:
 
 - **Device details**: collected and sent only with analytics consent.
 - **Sync**: local database, outbox, pull by cursor.
-- **Config & experiments**: cached config with built-in defaults, exposure events.
 - **Subscriptions**: Play Billing with `obfuscatedAccountId`, server
   verification, entitlements.
 - **Push**: FCM token registration, open tracking.
@@ -292,6 +354,9 @@ The SDK is tested on the host without a device:
 - Consent and events against an in-memory SQLite (`sqflite_common_ffi`):
   consent gating, withdrawal, offline queue, user switches, upload triggers.
 - Standard events with a fake clock: sessions, restarts, updates, consent later.
+- Config generator and value checks; the config manager against the fake API:
+  first launch wait, late answers, pending and activate, ETag, user changes,
+  offline, exposures.
 
 An end-to-end check runs the demo app on the emulator against a local
 platform server.

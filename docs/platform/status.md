@@ -15,7 +15,7 @@ external dependency)
 | Consent | Done | Done | Planned |
 | 2. Event tracking | Done | Done | Planned |
 | 3. Offline-first sync | Planned | Planned | — |
-| 4. Remote config & A/B tests | Planned | Planned | Planned |
+| 4. Remote config & A/B tests | Done | Done | Planned |
 | 5. Subscriptions | Planned | Planned | Planned |
 | 6. Attribution | Planned | Planned | — |
 | 7. Push notifications | Planned | Planned | Planned |
@@ -161,13 +161,54 @@ Decisions:
   removed, time rounded to the day); deleted or anonymized on account
   deletion. Aggregates and trained models kept without limit. Needs legal review.
 
-## 3–9. Other systems
+## 4. Remote config & A/B tests
+
+Details: [config.md](config.md).
+
+### Server
+
+| Item | Status |
+|------|--------|
+| Parameter declarations per app, compatibility check, `pnpm config:schema` | Done |
+| Config document: force, rules, values, experiments, layers, holdout | Done |
+| Checks on publish: declarations, weights, overlapping traffic, shared parameters | Done |
+| Experiment lifecycle (draft, running, stopped), server-set start and stop times | Done |
+| Numbered versions, rollback by republishing, `pnpm config:publish` / `config:show` | Done |
+| Evaluation: SHA-256 buckets, holdout, layers, targeting, forced testers | Done |
+| `GET /v1/config` with ETag and 304; active version cached for a minute | Done |
+| `experiment_exposed` platform event | Done |
+| Editing, publishing and the holdout setting in the admin panel | Planned: with the admin |
+| Results per experiment, significance | Planned: with the dashboards |
+| Rules on device details and on the app build | Planned |
+| Bandits and personalization | Planned |
+
+### Flutter SDK
+
+| Item | Status |
+|------|--------|
+| Generator: typed config class and JSON, compatibility check | Done |
+| `ConfigValues`: server values with the app's own checks, defaults as fallback | Done |
+| `ConfigManager`: first launch wait, pending until the next launch, activate, refresh after an hour | Done |
+| User changes, ETag, offline | Done |
+| Exposures once per session; not for testers, unusable values or without consent | Done |
+| Demo: own parameters, paywall experiment, config section | Done, verified on the emulator |
+
+Decisions:
+
+- Parameters are declared by the app (YAML with generated code); values,
+  rules and experiments live on the server as numbered versions.
+- The server computes the values; the phone never sees rules or other
+  experiments.
+- New values apply at the next launch, except the first launch, user
+  changes and `activate()`.
+- Holdout is off by default; it will be switched and sized in the admin panel.
+- Results count exposed users only.
+
+## 3, 5–9. Other systems
 
 | Item | Status |
 |------|--------|
 | Offline-first sync: library for app backends, outbox, cursor pull, per-field last-write-wins | Planned |
-| Remote config, hash-based assignment, layers, global holdout, exposure events, kill switches | Planned |
-| Decision logging (variant, policy, probability) | Planned |
 | Play Billing verification, RTDN, entitlements, restore | Planned |
 | App Store (StoreKit, server notifications) | Deferred |
 | Install Referrer, server-side conversions to ad networks | Planned |
