@@ -17,7 +17,9 @@
     "plan:upload": "tsx --env-file=.env scripts/upload-plan.ts",
     "config:schema": "tsx --env-file=.env scripts/upload-config-schema.ts",
     "config:publish": "tsx --env-file=.env scripts/publish-config.ts",
-    "config:show": "tsx --env-file=.env scripts/show-config.ts"
+    "config:show": "tsx --env-file=.env scripts/show-config.ts",
+    "keys:data": "tsx scripts/generate-data-key.ts",
+    "webhooks:set": "tsx --env-file=.env scripts/set-webhook.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",

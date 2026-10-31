@@ -214,7 +214,6 @@ describe('POST /v1/auth/google on a second device', () => {
     expect(merge).toMatchObject({
       targetUserId: first.userId,
       strategy: 'keep_target',
-      notifiedAt: null,
     });
 
     // The anonymous session is gone; the new tokens belong to the existing account

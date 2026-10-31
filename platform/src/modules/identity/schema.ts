@@ -247,8 +247,6 @@ export const userMerges = identitySchema.table(
       .references(() => installations.id),
     strategy: mergeStrategyEnum('strategy').notNull(),
     createdAt: createdAt(),
-    // When the app backend acknowledged the merge signal
-    notifiedAt: tz('notified_at'),
   },
   (t) => [
     foreignKey({

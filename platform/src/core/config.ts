@@ -41,6 +41,10 @@ const envSchema = z.object({
       }
     })
     .pipe(z.array(signingKeySchema).min(1)),
+  // AES-256 key for secrets stored in the database: pnpm keys:data
+  DATA_ENCRYPTION_KEY: z
+    .string()
+    .refine((v) => Buffer.from(v, 'base64url').length === 32, 'must be 32 bytes in base64url (pnpm keys:data)'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(90),
   // A rotated refresh token may be retried within this window

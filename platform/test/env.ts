@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { exportJWK, generateKeyPair } from 'jose';
+import { randomBytes } from 'node:crypto';
 
 // Prepares environment variables for tests. Safe to call more than once.
 // Uses the database server from platform/.env (or DATABASE_URL in CI)
@@ -29,6 +30,9 @@ export async function prepareTestEnv(): Promise<{ devUrl: string; testUrl: strin
     const jwk = { ...(await exportJWK(privateKey)), kid: 'test-key', alg: 'EdDSA', use: 'sig' };
     process.env.JWT_SIGNING_KEYS = Buffer.from(JSON.stringify([jwk])).toString('base64url');
   }
+
+  // A throwaway encryption key for secrets stored in the database
+  process.env.DATA_ENCRYPTION_KEY ??= randomBytes(32).toString('base64url');
 
   return { devUrl: devUrl.toString(), testUrl: testUrl.toString() };
 }

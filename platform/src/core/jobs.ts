@@ -81,6 +81,18 @@ export async function stopJobs(): Promise<void> {
 
 // Queues a job. With a transaction, the job exists only if the transaction commits.
 export async function sendJob(name: string, data: Record<string, unknown>, tx?: Tx): Promise<void> {
-  if (!boss) throw new Error('Jobs are not started');
+  if (!boss) {
+    if (fallbackSender) return fallbackSender(name, data);
+    throw new Error('Jobs are not started');
+  }
   await boss.send(name, data, tx ? { db: fromDrizzle(tx, sql) } : {});
+}
+
+type JobSender = (name: string, data: Record<string, unknown>) => Promise<void>;
+
+let fallbackSender: JobSender | null = null;
+
+// Where jobs go while no queue runs in this process: tests record them
+export function setFallbackJobSender(sender: JobSender | null): void {
+  fallbackSender = sender;
 }

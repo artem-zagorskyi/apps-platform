@@ -6,6 +6,7 @@ import { startJobs, stopJobs } from './core/jobs.js';
 import { eventsJobs } from './modules/events/jobs.js';
 import { ensureEventPartitions } from './modules/events/partitions.js';
 import { identityJobs } from './modules/identity/jobs.js';
+import { webhooksJobs } from './modules/webhooks/jobs.js';
 
 const app = await buildApp();
 
@@ -17,8 +18,7 @@ if (await openGeoIp(config.GEOIP_DB_PATH)) {
 // the daily job keeps the next months ready
 await ensureEventPartitions();
 
-// Workers run in this process; they can move to their own process later
-await startJobs([...identityJobs, ...eventsJobs], app.log);
+await startJobs([...identityJobs, ...eventsJobs, ...webhooksJobs], app.log);
 
 // Graceful shutdown: let in-flight requests and jobs finish before exiting.
 // Docker sends SIGTERM on stop, Ctrl+C sends SIGINT.

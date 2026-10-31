@@ -20,6 +20,7 @@ import {
   type TokenPair,
 } from './service.js';
 import type { AccessTokenClaims } from './tokens.js';
+import { notifyApp } from '../webhooks/service.js';
 
 export type MergeStrategy = (typeof mergeStrategyEnum.enumValues)[number];
 
@@ -163,13 +164,25 @@ export async function signInWithProvider(
         .set({ userId: existing.userId, updatedAt: now })
         .where(eq(installations.id, auth.installationId));
 
-      // The app backend is notified later from this record (notified_at stays null)
-      await tx.insert(userMerges).values({
-        appId: auth.appId,
+      const [merge] = await tx
+        .insert(userMerges)
+        .values({
+          appId: auth.appId,
+          sourceUserId: auth.userId,
+          targetUserId: existing.userId,
+          installationId: auth.installationId,
+          strategy,
+        })
+        .returning({ id: userMerges.id, createdAt: userMerges.createdAt });
+      if (!merge) throw new Error('Failed to record the merge');
+
+      // The app backend moves domain data by the strategy; sent after commit
+      await notifyApp(tx, auth.appId, 'user.merged', {
+        mergeId: merge.id,
         sourceUserId: auth.userId,
         targetUserId: existing.userId,
-        installationId: auth.installationId,
         strategy,
+        mergedAt: merge.createdAt.toISOString(),
       });
 
       await tx
