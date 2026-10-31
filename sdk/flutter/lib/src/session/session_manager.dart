@@ -37,6 +37,9 @@ enum UserChangeReason {
 
   /// The user signed out; the device has a new anonymous user
   loggedOut,
+
+  /// The account was deleted; the device has a new anonymous user
+  accountDeleted,
 }
 
 /// The device now belongs to another user. The app must reload or clear
@@ -191,6 +194,14 @@ class SessionManager {
     await prepareUserSwitch();
     final tokens = await authorized(_api.logout);
     await applyTokens(tokens, UserChangeReason.loggedOut);
+  }
+
+  /// Deletes the account on the server. The device gets a fresh anonymous
+  /// user. Unlike logout, nothing queued for the deleted user is sent first:
+  /// those events are dropped.
+  Future<void> deleteAccount() async {
+    final tokens = await authorized(_api.deleteAccount);
+    await applyTokens(tokens, UserChangeReason.accountDeleted);
   }
 
   Future<void> dispose() => _changes.close();

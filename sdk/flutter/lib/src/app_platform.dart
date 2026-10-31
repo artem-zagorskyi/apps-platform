@@ -235,6 +235,14 @@ class AppPlatform {
   /// who would lose the account: offer Google sign-in instead.
   Future<void> logout() => _session.logout();
 
+  /// Deletes the account and everything the platform stores about the user.
+  /// Works for every user, also anonymous ones, and cannot be undone.
+  /// The device gets a fresh anonymous user and [userChanges] reports
+  /// accountDeleted: clear everything of the previous user.
+  /// Throws NetworkException / ServerException while the server is
+  /// unreachable; nothing is deleted then.
+  Future<void> deleteAccount() => _session.deleteAccount();
+
   static Future<ClientInfo> _collectClientInfo(String appId) async {
     final package = await PackageInfo.fromPlatform();
     final device = DeviceInfoPlugin();

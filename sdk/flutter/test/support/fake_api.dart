@@ -214,6 +214,18 @@ class FakeApi implements PlatformApi {
   /// Runs before the answer, e.g. to hold it until the test continues
   Future<void> Function()? onGetConfig;
 
+  final deletedUsers = <String>[];
+  Future<TokenPair> Function(String accessToken)? onDeleteAccount;
+
+  @override
+  Future<TokenPair> deleteAccount(String accessToken) async {
+    final handler = onDeleteAccount;
+    if (handler != null) return handler(accessToken);
+    deletedUsers.add(_userOf(accessToken));
+    _users++;
+    return issue('user-$_users');
+  }
+
   void setServerConfig(String userId, ServerConfig config) => _configByUser[userId] = config;
 
   @override

@@ -69,9 +69,15 @@ class PlatformApi {
     return _parse(() => ProviderSignInResponse.fromJson(json));
   }
 
-    /// Signs out on this device; returns tokens of a fresh anonymous user
+  /// Signs out on this device; returns tokens of a fresh anonymous user
   Future<TokenPair> logout(String accessToken) async {
     final json = await _send('POST', '/v1/auth/logout', accessToken: accessToken);
+    return _parse(() => TokenPair.fromJson(json));
+  }
+
+  /// Deletes the current user's account; returns tokens of a fresh anonymous user
+  Future<TokenPair> deleteAccount(String accessToken) async {
+    final json = await _send('DELETE', '/v1/me', accessToken: accessToken);
     return _parse(() => TokenPair.fromJson(json));
   }
 

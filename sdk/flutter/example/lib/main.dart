@@ -206,6 +206,42 @@ class _DemoHomePageState extends State<DemoHomePage> {
         await _refreshQueue();
       });
 
+    // Destructive: always ask first, as a real app must
+  Future<void> _deleteAccount() async {
+    final platform = _platform;
+    if (platform == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'Your account and everything stored about it will be deleted. '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await _run('delete account', () async {
+      await platform.deleteAccount();
+      final profile = await platform.me();
+      setState(() => _profile = profile);
+      await _refreshQueue();
+    });
+  }
+
   // The demo always asks. A real app returns keepTarget without asking
   // when this device has no progress worth keeping.
   Future<MergeStrategy?> _chooseMergeStrategy() {
@@ -429,6 +465,11 @@ class _DemoHomePageState extends State<DemoHomePage> {
               OutlinedButton(
                 onPressed: canAct ? _logout : null,
                 child: const Text('Sign out'),
+              ),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                onPressed: canAct ? () => unawaited(_deleteAccount()) : null,
+                child: const Text('Delete account'),
               ),
             ],
           ),
