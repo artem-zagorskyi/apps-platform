@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '../../core/db.js';
 import {
   appPlatforms,
@@ -7,7 +7,9 @@ import {
   consentPolicies,
   oauthClients,
   type Platform,
+  identityKeys,
 } from './schema.js';
+import type { JWK } from 'jose';
 
 // True if the app exists, is active and has this platform registered
 export async function isAppPlatformActive(
@@ -82,4 +84,25 @@ export async function getConsentPolicy(
     rows.find((row) => row.region === country) ?? rows.find((row) => row.region === '*');
 
   return policy ? { policy, configured: true } : { policy: FALLBACK_POLICY, configured: false };
+}
+
+// Keys an app backend signs identity assertions with; revoked ones excluded
+export async function getIdentityKeys(appId: string): Promise<{ kid: string; publicJwk: JWK }[]> {
+  return db
+    .select({ kid: identityKeys.kid, publicJwk: identityKeys.publicJwk })
+    .from(identityKeys)
+    .where(and(eq(identityKeys.appId, appId), isNull(identityKeys.revokedAt)));
+}
+
+export async function addIdentityKey(appId: string, kid: string, publicJwk: JWK): Promise<void> {
+  await db.insert(identityKeys).values({ appId, kid, publicJwk });
+}
+
+// True if an active key was revoked
+export async function revokeIdentityKey(appId: string, kid: string): Promise<boolean> {
+  const result = await db
+    .update(identityKeys)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(identityKeys.appId, appId), eq(identityKeys.kid, kid), isNull(identityKeys.revokedAt)));
+  return (result.rowCount ?? 0) > 0;
 }

@@ -19,7 +19,8 @@
     "config:publish": "tsx --env-file=.env scripts/publish-config.ts",
     "config:show": "tsx --env-file=.env scripts/show-config.ts",
     "keys:data": "tsx scripts/generate-data-key.ts",
-    "webhooks:set": "tsx --env-file=.env scripts/set-webhook.ts"
+    "webhooks:set": "tsx --env-file=.env scripts/set-webhook.ts",
+    "identity:key": "tsx --env-file=.env scripts/identity-key.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",

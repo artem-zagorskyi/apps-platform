@@ -135,6 +135,25 @@ backend what to do with the domain data.
 On Android the SDK calls Credential Manager directly from its own Kotlin
 code, because a fresh server nonce must be passed with every sign-in.
 
+## App accounts
+
+Apps with their own accounts (email and password, phone, other providers)
+sign in through their backend, which confirms the login with an identity
+assertion ([app-accounts.md](../platform/app-accounts.md)):
+
+```dart
+final result = await platform.signInWithAccount(
+  getAssertion: (nonce) => myBackend.login(email, password, nonce: nonce),
+  resolveConflict: chooseMergeStrategy,
+);
+```
+
+- The SDK gets a nonce from the platform and passes it to `getAssertion`;
+  the app sends it with its login request. Returning null cancels.
+- Results, merge conflicts and user changes work as for Google
+  (`SignInResult`, the same `resolveConflict`).
+- Linked app accounts appear in `me()` as provider `external`.
+
 ## Apple sign-in (later, iOS only)
 
 Same flow as Google, except: the app passes `sha256(nonce)` to Apple, and

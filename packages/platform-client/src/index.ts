@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { createRemoteJWKSet, errors, type JWTVerifyGetKey, jwtVerify } from 'jose';
+import { createRemoteJWKSet, errors, importJWK, type JWK, type JWTVerifyGetKey, jwtVerify, SignJWT } from 'jose';
 
 // ---------- Access tokens ----------
 
@@ -126,4 +126,46 @@ export function verifyWebhook(
   }
 
   return JSON.parse(body) as PlatformWebhook;
+}
+
+// ---------- Identity assertions ----------
+
+export interface IdentityAssertionOptions {
+  // Private key printed by `pnpm identity:key` (base64url JSON) or a JWK
+  privateKey: string | JWK;
+  // This app's id on the platform
+  appId: string;
+  // Stable account id in the app's own system
+  subject: string;
+  // Nonce the SDK got from the platform; the app sends it with the login request
+  nonce: string;
+  email?: string;
+  emailVerified?: boolean;
+  // JWT_ISSUER of the platform
+  platformAudience?: string;
+}
+
+// Confirms to the platform that a person signed in to the app's own account
+// `subject`. The SDK sends the result to POST /v1/auth/external.
+export async function createIdentityAssertion(options: IdentityAssertionOptions): Promise<string> {
+  const jwk: JWK =
+    typeof options.privateKey === 'string'
+      ? (JSON.parse(Buffer.from(options.privateKey, 'base64url').toString('utf8')) as JWK)
+      : options.privateKey;
+  const alg = jwk.alg ?? 'EdDSA';
+  if (!jwk.kid) throw new Error('The private key has no kid');
+
+  return new SignJWT({
+    nonce: options.nonce,
+    ...(options.email !== undefined && { email: options.email }),
+    ...(options.emailVerified !== undefined && { email_verified: options.emailVerified }),
+  })
+    .setProtectedHeader({ alg, kid: jwk.kid })
+    .setIssuer(options.appId)
+    .setAudience(options.platformAudience ?? 'apps-platform')
+    .setSubject(options.subject)
+    .setIssuedAt()
+    // As long as the platform's nonce: enough for the merge dialog
+    .setExpirationTime('10m')
+    .sign(await importJWK(jwk, alg));
 }

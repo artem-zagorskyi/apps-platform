@@ -73,6 +73,7 @@ In psql: `\dn` schemas, `\dt identity.*` tables, `\d <table>` columns,
 | Run the build | `pnpm start` |
 | New signing key | `pnpm keys:generate` |
 | New data encryption key | `pnpm keys:data` (changing it makes stored secrets unreadable) |
+| Register or revoke an app backend's identity key | `pnpm identity:key <app slug> [--revoke <kid>]` |
 | Set or remove an app's webhook endpoint | `pnpm webhooks:set <app slug> <url \| off>` |
 | Migration from schema changes | `pnpm db:generate --name <what_changed>` |
 | Empty migration for hand-written SQL | `pnpm db:generate --custom --name <what>` |
@@ -171,6 +172,7 @@ version published by the script up within a minute (or restart `pnpm dev`).
 | Tests | `pnpm test` |
 | Type check | `pnpm typecheck` |
 | Build to `dist/` | `pnpm build` |
+| Stand-in login for app accounts | `PLATFORM_APP_ID=<id> PLATFORM_IDENTITY_KEY=<key> pnpm fake-login` |
 
 ## Webhooks and jobs
 

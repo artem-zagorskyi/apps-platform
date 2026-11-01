@@ -6,8 +6,10 @@ import {
   text,
   unique,
   uuid,
+  jsonb,
 } from 'drizzle-orm/pg-core';
-import { createdAt, primaryId } from '../../core/columns.js';
+import { createdAt, primaryId, tz } from '../../core/columns.js';
+import type { JWK } from 'jose';
 
 // All tables of this module live in the "apps" Postgres schema
 export const appsSchema = pgSchema('apps');
@@ -15,7 +17,7 @@ export const appsSchema = pgSchema('apps');
 // Fixed value lists. platform and auth_provider are reused by other modules.
 export const appStatusEnum = appsSchema.enum('app_status', ['active', 'disabled']);
 export const platformEnum = appsSchema.enum('platform', ['android', 'ios']);
-export const authProviderEnum = appsSchema.enum('auth_provider', ['google', 'apple']);
+export const authProviderEnum = appsSchema.enum('auth_provider', ['google', 'apple', 'external']);
 export const consentModeEnum = appsSchema.enum('consent_mode', [
   'none', // no consent screen
   'optional', // consent screen, the app works after refusal
@@ -86,3 +88,20 @@ export const consentPolicies = appsSchema.table(
 
 // 'android' | 'ios', derived from the enum so both always match
 export type Platform = (typeof platformEnum.enumValues)[number];
+
+// Public keys of an app backend that signs identity assertions for its own
+// accounts (provider "external"). Several keys allow rotation.
+export const identityKeys = appsSchema.table(
+  'identity_keys',
+  {
+    id: primaryId(),
+    appId: uuid('app_id')
+      .notNull()
+      .references(() => apps.id),
+    kid: text('kid').notNull(),
+    publicJwk: jsonb('public_jwk').$type<JWK>().notNull(),
+    createdAt: createdAt(),
+    revokedAt: tz('revoked_at'),
+  },
+  (t) => [unique('identity_keys_app_kid_key').on(t.appId, t.kid)],
+);

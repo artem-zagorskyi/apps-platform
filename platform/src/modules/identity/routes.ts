@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authProviderEnum, platformEnum } from '../apps/schema.js';
 import { authOf, requireAuth } from './auth.js';
 import { issueNonce } from './nonce.js';
-import { signInWithGoogle } from './provider-sign-in.js';
+import { signInWithGoogle, signInWithExternal } from './provider-sign-in.js';
 import { mergeStrategyEnum } from './schema.js';
 import { getMe, logout, refreshSession, signUpAnonymous } from './service.js';
 import { publicJwks } from './tokens.js';
@@ -24,6 +24,13 @@ const refreshBody = z.object({
 
 const googleSignInBody = z.object({
   idToken: z.string().min(1).max(4096),
+  // Omitted on the first attempt; set when retrying after 409 account_exists
+  mergeStrategy: z.enum(mergeStrategyEnum.enumValues).optional(),
+});
+
+const externalSignInBody = z.object({
+  // Identity assertion signed by the app backend
+  assertion: z.string().min(1).max(4096),
   // Omitted on the first attempt; set when retrying after 409 account_exists
   mergeStrategy: z.enum(mergeStrategyEnum.enumValues).optional(),
 });
@@ -123,6 +130,18 @@ export const identityRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request) =>
       signInWithGoogle(authOf(request), request.body.idToken, request.body.mergeStrategy),
+  );
+
+    // Sign-in with an account of the app's own system, confirmed by its backend
+  app.post(
+    '/v1/auth/external',
+    {
+      preHandler: requireAuth,
+      schema: { body: externalSignInBody, response: { 200: providerSignInResponse } },
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (request) =>
+      signInWithExternal(authOf(request), request.body.assertion, request.body.mergeStrategy),
   );
 
   // Sign out on this device; returns tokens of a fresh anonymous user

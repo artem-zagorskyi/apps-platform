@@ -4,6 +4,7 @@ import { AppError, isUniqueViolation } from '../../core/errors.js';
 import { getOAuthClientIds } from '../apps/service.js';
 import { consumeNonce } from './nonce.js';
 import { verifyGoogleIdToken } from './providers/google.js';
+import { verifyExternalAssertion } from './providers/external.js';
 import type { VerifiedIdentity } from './providers/types.js';
 import {
   authIdentities,
@@ -223,5 +224,14 @@ export async function signInWithGoogle(
 ): Promise<ProviderSignInResult> {
   const clientIds = await getOAuthClientIds(auth.appId, 'google');
   const identity = await verifyGoogleIdToken(idToken, clientIds);
+  return signInWithProvider(auth, identity, strategy);
+}
+
+export async function signInWithExternal(
+  auth: AccessTokenClaims,
+  assertion: string,
+  strategy?: MergeStrategy,
+): Promise<ProviderSignInResult> {
+  const identity = await verifyExternalAssertion(auth.appId, assertion);
   return signInWithProvider(auth, identity, strategy);
 }

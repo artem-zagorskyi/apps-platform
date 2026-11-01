@@ -69,6 +69,18 @@ class PlatformApi {
     return _parse(() => ProviderSignInResponse.fromJson(json));
   }
 
+  Future<ProviderSignInResponse> signInWithExternal(
+    String accessToken, {
+    required String assertion,
+    MergeStrategy? mergeStrategy,
+  }) async {
+    final json = await _send('POST', '/v1/auth/external', accessToken: accessToken, body: {
+      'assertion': assertion,
+      if (mergeStrategy != null) 'mergeStrategy': mergeStrategy.wireName,
+    });
+    return _parse(() => ProviderSignInResponse.fromJson(json));
+  }
+
   /// Signs out on this device; returns tokens of a fresh anonymous user
   Future<TokenPair> logout(String accessToken) async {
     final json = await _send('POST', '/v1/auth/logout', accessToken: accessToken);

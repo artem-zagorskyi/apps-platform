@@ -1,68 +1,74 @@
-# @apps-platform/platform-client
+# Apps Platform
 
-For app backends: verify platform access tokens and webhook notifications.
+A reusable foundation for Flutter mobile apps.
 
-## Tokens
+Every mobile product needs the same systems under the hood: accounts, offline
+sync, event tracking, remote config and A/B tests, subscriptions, attribution,
+push notifications and analytics. This repository builds them once. A wrapper
+app plugs in the SDK and adds only its own screens and domain data. One
+platform server serves all apps; a new app is a new `app_id`, not a new
+deployment.
 
-```ts
-import { bearerToken, createTokenVerifier, PlatformTokenError } from '@apps-platform/platform-client';
+## Parts
 
-const verifyToken = createTokenVerifier({
-  platformUrl: process.env.PLATFORM_URL!, // e.g. https://platform.example.com
-  appId: process.env.PLATFORM_APP_ID!, // tokens of other apps are refused
-});
+| Folder           | What it is                              | Stack                        |
+|------------------|-----------------------------------------|------------------------------|
+| `platform/`      | Platform server, one for all apps       | Node.js, Fastify, TypeScript |
+| `admin/`         | Admin panel and dashboards              | Next.js, JavaScript          |
+| `sdk/flutter/`   | Package that apps depend on             | Dart, Flutter                |
+| `tracking-plan/` | Standard platform events                | YAML, generated JSON         |
+| `packages/`      | Shared JS packages                      | Node.js                      |
+| `infra/`         | Docker Compose, Caddy, backups          | Docker                       |
+| `docs/`          | Architecture and module documentation   | Markdown                     |
 
-app.addHook('preHandler', async (request, reply) => {
-  const token = bearerToken(request.headers.authorization);
-  if (!token) return reply.code(401).send({ error: 'unauthorized' });
-  try {
-    request.user = await verifyToken(token); // { userId, installationId, platform }
-  } catch (err) {
-    if (err instanceof PlatformTokenError) return reply.code(401).send({ error: 'unauthorized' });
-    throw err;
-  }
-});
+## Documentation
+
+- [Architecture](docs/architecture.md): components, data model principles,
+  security, privacy, key decisions
+- [Commands](docs/commands.md): every command for the server, database, SDK,
+  event generation and the demo app
+- [Platform development](docs/platform/development.md): local setup, scripts,
+  migrations, tests, conventions
+- [Identity module](docs/platform/identity.md): accounts, tokens, endpoints,
+  sign-in, merge and consent
+- [Events module](docs/platform/events.md): tracking plan, standard events,
+  sessions, ingestion, storage and retention
+- [Config module](docs/platform/config.md): remote config, A/B tests,
+  assignment, experiment lifecycle, versions and exposures
+- [App accounts](docs/platform/app-accounts.md): sign-in with the app's own
+  accounts through its backend
+- [Jobs and webhooks](docs/platform/jobs.md): background jobs, schedules,
+  notifications to app backends and how to verify them
+- [Account deletion](docs/platform/account-deletion.md): deletion flow,
+  erasure, anonymization, what stays
+- [Status](docs/platform/status.md): what is done and what is left
+- [Flutter SDK requirements](docs/sdk/requirements.md): what the SDK and the
+  wrapper app must do
+
+## Quick start
+
+```bash
+cd infra && cp .env.example .env && docker compose -f docker-compose.dev.yml up -d && cd ..
+pnpm install
+cd platform && cp .env.example .env
+pnpm keys:generate      # paste the printed line into platform/.env
+pnpm keys:data          # paste the printed line into platform/.env
+pnpm db:migrate && pnpm db:seed
+pnpm dev
 ```
 
-Keys come from the platform's `/.well-known/jwks.json` and are cached; an
-unknown key id triggers a refetch, so key rotation needs nothing on the
-backend. Answer `401` for a refused token: the SDK then renews the session
-and repeats the request once.
+Details in [docs/platform/development.md](docs/platform/development.md).
 
-## Webhooks
+## Conventions
 
-```ts
-import { verifyWebhook, WebhookSignatureError } from '@apps-platform/platform-client';
+- All code comments and documentation are in English.
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+  with a scope and a short description of changes.
+- New behaviour comes with tests; `pnpm test` and `pnpm typecheck` both pass
+  before a commit.
 
-// The signature covers the raw body: keep it as a string for this route
-app.register(async (hooks) => {
-  hooks.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => done(null, body));
+## Status
 
-  hooks.post('/platform-webhooks', async (request, reply) => {
-    let event;
-    try {
-      event = verifyWebhook(
-        request.body as string,
-        request.headers['x-platform-signature'] as string | undefined,
-        process.env.PLATFORM_WEBHOOK_SECRET!,
-      );
-    } catch (err) {
-      if (err instanceof WebhookSignatureError) return reply.code(401).send();
-      throw err;
-    }
-
-    // Skip if event.id was handled already, then act on it
-    switch (event.type) {
-      case 'user.merged': // move data of event.data.sourceUserId by event.data.strategy
-      case 'user.deleted': // delete data of event.data.userId and event.data.mergedUserIds
-    }
-    return reply.code(204).send();
-  });
-});
-```
-
-Notification types and retries: [docs/platform/jobs.md](../../docs/platform/jobs.md#webhooks-to-app-backends).
-
-## Commands
-
-`pnpm test`, `pnpm typecheck`, `pnpm build` (to `dist/`).
+Stage 0. Identity (Android; Apple sign-in deferred) with account deletion,
+consent, event tracking, remote config and A/B tests, background jobs and
+webhooks work end to end on the server, the Flutter SDK and the demo app. See [status](docs/platform/status.md).

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:renvix_sdk/renvix_sdk.dart';
 
 import 'consent_screen.dart';
@@ -14,6 +16,8 @@ const _apiUrl = String.fromEnvironment(
   defaultValue: 'http://10.0.2.2:3000',
 );
 const _googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+// A stand-in for the app backend's login (packages/platform-client: pnpm fake-login)
+const _loginUrl = String.fromEnvironment('DEMO_LOGIN_URL', defaultValue: 'http://10.0.2.2:4100/login');
 
 void main() {
   runApp(const DemoApp());
@@ -188,12 +192,43 @@ class _DemoHomePageState extends State<DemoHomePage> {
         final result = await platform.signInWithGoogle(resolveConflict: _chooseMergeStrategy);
         _addLog('google result: ${result.name}');
 
-        if (result != GoogleSignInResult.cancelled) {
+        if (result != SignInResult.cancelled) {
           final profile = await platform.me();
           setState(() => _profile = profile);
         }
         await _refreshQueue();
       });
+
+    // An app account: the app's backend checks the login and confirms it to the platform
+  Future<void> _signInWithAccount() async {
+    final platform = _platform;
+    if (platform == null) return;
+
+    final account = await showDialog<String>(context: context, builder: (_) => const _AccountDialog());
+    if (account == null || account.isEmpty) return;
+
+    await _run('account', () async {
+      final result = await platform.signInWithAccount(
+        // A real app sends its login form with the nonce to its backend
+        getAssertion: (nonce) async {
+          final response = await http.post(
+            Uri.parse(_loginUrl),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'account': account, 'nonce': nonce}),
+          );
+          if (response.statusCode != 200) throw StateError('Login failed with ${response.statusCode}');
+          return (jsonDecode(response.body) as Map<String, Object?>)['assertion'] as String?;
+        },
+        resolveConflict: _chooseMergeStrategy,
+      );
+      _addLog('account result: ${result.name}');
+
+      if (result != SignInResult.cancelled) {
+        final profile = await platform.me();
+        setState(() => _profile = profile);
+      }
+    });
+  }
 
   Future<void> _logout() => _run('logout', () async {
         final platform = _platform;
@@ -462,6 +497,10 @@ class _DemoHomePageState extends State<DemoHomePage> {
                 onPressed: canAct && googleConfigured ? _signInWithGoogle : null,
                 child: const Text('Sign in with Google'),
               ),
+              FilledButton.tonal(
+                onPressed: canAct ? () => unawaited(_signInWithAccount()) : null,
+                child: const Text('Sign in with account'),
+              ),
               OutlinedButton(
                 onPressed: canAct ? _logout : null,
                 child: const Text('Sign out'),
@@ -522,6 +561,44 @@ class _Field extends StatelessWidget {
           Expanded(child: SelectableText(value ?? '-')),
         ],
       ),
+    );
+  }
+}
+
+/// Asks for an account name; the stand-in login accepts any
+class _AccountDialog extends StatefulWidget {
+  const _AccountDialog();
+
+  @override
+  State<_AccountDialog> createState() => _AccountDialogState();
+}
+
+class _AccountDialogState extends State<_AccountDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Sign in with an app account'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(labelText: 'Account, e.g. an email'),
+        onSubmitted: (value) => Navigator.pop(context, value.trim()),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: const Text('Sign in'),
+        ),
+      ],
     );
   }
 }

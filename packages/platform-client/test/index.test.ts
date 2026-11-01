@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, jwtVerify } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   bearerToken,
@@ -7,6 +7,7 @@ import {
   PlatformTokenError,
   verifyWebhook,
   WebhookSignatureError,
+  createIdentityAssertion,
 } from '../src/index.js';
 
 const APP_ID = '0190a000-0000-7000-8000-00000000a000';
@@ -114,5 +115,29 @@ describe('verifyWebhook', () => {
     expect(() => verifyWebhook(body, sign(body, Math.floor(Date.now() / 1000) - 600), secret)).toThrow('too old');
     expect(() => verifyWebhook(body, undefined, secret)).toThrow('Missing');
     expect(() => verifyWebhook(body, 'v1=abc', secret)).toThrow('Missing');
+  });
+});
+
+describe('createIdentityAssertion', () => {
+  it('signs an assertion the platform can verify', async () => {
+    const { publicKey, privateKey } = await generateKeyPair('EdDSA', { extractable: true });
+    const privateJwk = { ...(await exportJWK(privateKey)), kid: 'backend-1', alg: 'EdDSA' };
+    const printed = Buffer.from(JSON.stringify(privateJwk)).toString('base64url');
+
+    const assertion = await createIdentityAssertion({
+      privateKey: printed,
+      appId: APP_ID,
+      subject: 'account-42',
+      nonce: 'nonce-1',
+      email: 'person@example.com',
+    });
+
+    const { payload, protectedHeader } = await jwtVerify(assertion, publicKey, {
+      issuer: APP_ID,
+      audience: 'apps-platform',
+    });
+    expect(protectedHeader).toMatchObject({ alg: 'EdDSA', kid: 'backend-1' });
+    expect(payload).toMatchObject({ sub: 'account-42', nonce: 'nonce-1', email: 'person@example.com' });
+    expect((payload.exp ?? 0) - (payload.iat ?? 0)).toBe(600);
   });
 });

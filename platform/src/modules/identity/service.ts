@@ -12,6 +12,7 @@ import {
   hashRefreshToken,
   signAccessToken,
 } from './tokens.js';
+import type { authProviderEnum } from '../apps/schema.js';
 
 export interface AnonymousSignUpInput {
   appId: string;
@@ -36,7 +37,7 @@ export interface Me {
   installationId: string;
   platform: Platform;
   createdAt: string; // ISO 8601
-  providers: { provider: 'google' | 'apple'; email: string | null }[];
+  providers: { provider: (typeof authProviderEnum.enumValues)[number]; email: string | null }[];
 }
 
 // A refresh token handed to the client together with its expiry

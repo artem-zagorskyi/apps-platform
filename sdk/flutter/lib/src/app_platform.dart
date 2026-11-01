@@ -10,6 +10,7 @@ import 'api/models.dart';
 import 'api/platform_api.dart';
 import 'auth/google_credentials.dart';
 import 'auth/google_sign_in_flow.dart';
+import 'auth/provider_sign_in.dart';
 import 'config/config_manager.dart';
 import 'consent/consent_manager.dart';
 import 'consent/consent_store.dart';
@@ -248,7 +249,7 @@ class AppPlatform {
   /// Throws ApiException for refusals (already_signed_in,
   /// provider_already_linked, account_unavailable) and
   /// ProviderSignInException when the native chooser fails.
-  Future<GoogleSignInResult> signInWithGoogle({
+  Future<SignInResult> signInWithGoogle({
     required ResolveMergeConflict resolveConflict,
   }) {
     final flow = _googleSignIn;
@@ -256,6 +257,24 @@ class AppPlatform {
       throw StateError('Pass googleServerClientId to AppPlatform.init to enable Google sign-in');
     }
     return flow.signIn(resolveConflict: resolveConflict);
+  }
+
+  /// Signs in with an account of the app's own system (email and password,
+  /// phone, any provider), confirmed by the app backend.
+  ///
+  /// [getAssertion] receives a one-time nonce: send it with the login request
+  /// to the backend, which checks the login and returns an identity assertion
+  /// (createIdentityAssertion in @apps-platform/platform-client). Return null
+  /// when the person cancelled. Results and [resolveConflict] work as for
+  /// Google.
+  Future<SignInResult> signInWithAccount({
+    required Future<String?> Function(String nonce) getAssertion,
+    required ResolveMergeConflict resolveConflict,
+  }) {
+    return AccountSignInFlow(session: _session, api: _api).signIn(
+      getAssertion: getAssertion,
+      resolveConflict: resolveConflict,
+    );
   }
 
   /// Signs out on this device. The device gets a fresh anonymous user and

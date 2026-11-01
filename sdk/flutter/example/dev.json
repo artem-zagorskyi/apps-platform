@@ -3,5 +3,6 @@
   "PLATFORM_API_URL": "http://10.0.2.2:3000",
   "GOOGLE_SERVER_CLIENT_ID": "873661429196-5sjbj17u2av7bs1so0u7ch2v63datq51.apps.googleusercontent.com",
 
-  "GOOGLE_Android_CLIENT_ID":"873661429196-ft79ce48m8ga4ifubu88mva27l0s3bcr.apps.googleusercontent.com"
+  "GOOGLE_Android_CLIENT_ID":"873661429196-ft79ce48m8ga4ifubu88mva27l0s3bcr.apps.googleusercontent.com",
+  "DEMO_LOGIN_URL": "http://10.0.2.2:4100/login"
 }

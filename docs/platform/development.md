@@ -113,6 +113,7 @@ All run from `platform/`.
 | `pnpm -s config:show <slug> [version]` | Print a config version as JSON |
 | `pnpm keys:generate` | Print a new `JWT_SIGNING_KEYS` line |
 | `pnpm keys:data` | Print a new `DATA_ENCRYPTION_KEY` line |
+| `pnpm identity:key <slug> [--revoke <kid>]` | Register a key for an app backend's identity assertions (prints the private half) or revoke one |
 | `pnpm webhooks:set <slug> <url \| off>` | Set an app's webhook endpoint (prints the secret) or remove it |
 
 Always run both `pnpm test` and `pnpm typecheck`: Vitest does not check types,

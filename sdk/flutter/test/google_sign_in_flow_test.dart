@@ -73,7 +73,7 @@ void main() {
 
     final result = await flow.signIn(resolveConflict: mustNotAsk);
 
-    expect(result, GoogleSignInResult.linked);
+    expect(result, SignInResult.linked);
     // The server nonce went into the chooser, its token went to the server
     expect(google.requestedNonces, ['nonce-1']);
     expect(api.googleSignIns.single.idToken, 'google-token-nonce-1');
@@ -86,7 +86,7 @@ void main() {
 
     final result = await flow.signIn(resolveConflict: mustNotAsk);
 
-    expect(result, GoogleSignInResult.cancelled);
+    expect(result, SignInResult.cancelled);
     expect(api.googleSignIns, isEmpty);
   });
 
@@ -107,7 +107,7 @@ void main() {
     });
     await _flush();
 
-    expect(result, GoogleSignInResult.signedIn);
+    expect(result, SignInResult.signedIn);
     expect(asked, 1);
     // The retry reuses the same Google token
     expect(api.googleSignIns.map((call) => call.idToken), everyElement('google-token-nonce-1'));
@@ -121,7 +121,7 @@ void main() {
 
     final result = await flow.signIn(resolveConflict: () async => null);
 
-    expect(result, GoogleSignInResult.cancelled);
+    expect(result, SignInResult.cancelled);
     expect(api.googleSignIns, hasLength(1));
     expect(session.userId, 'user-1');
   });

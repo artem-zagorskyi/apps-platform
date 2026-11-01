@@ -38,6 +38,9 @@ class FakeApi implements PlatformApi {
       onGoogleSignIn;
   Future<TokenPair> Function(String accessToken)? onLogout;
 
+  final externalSignIns = <({String assertion, MergeStrategy? strategy})>[];
+  Future<ProviderSignInResponse> Function(String assertion, MergeStrategy? strategy)? onExternalSignIn;
+
   // Consent server: one policy, decisions per user
   ConsentMode consentMode = ConsentMode.optional;
   String consentPolicyVersion = 'v1';
@@ -135,6 +138,18 @@ class FakeApi implements PlatformApi {
     final handler = onGoogleSignIn;
     if (handler == null) throw StateError('Set onGoogleSignIn in the test');
     return handler(idToken, mergeStrategy);
+  }
+
+  @override
+  Future<ProviderSignInResponse> signInWithExternal(
+    String accessToken, {
+    required String assertion,
+    MergeStrategy? mergeStrategy,
+  }) async {
+    externalSignIns.add((assertion: assertion, strategy: mergeStrategy));
+    final handler = onExternalSignIn;
+    if (handler == null) throw StateError('Set onExternalSignIn in the test');
+    return handler(assertion, mergeStrategy);
   }
 
   @override

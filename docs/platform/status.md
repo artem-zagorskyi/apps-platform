@@ -74,6 +74,7 @@ Details: [identity.md](identity.md).
 | Sign-in nonces | Done |
 | Google sign-in, linking, two-step merge of anonymous users | Done |
 | Google web client ID registered by `db:seed` from `.env` | Done |
+| App accounts: provider `external` with backend-signed assertions, key rotation, `identity:key` | Done |
 | Apple sign-in (iOS only), code exchange, encrypted Apple refresh token | Deferred: needs an Apple Developer account |
 | Installation update on launch (app version, device details with analytics consent, geo) | Planned |
 | Account deletion: `DELETE /v1/me`, erasure job, event anonymization, `user.deleted` | Done |
@@ -92,6 +93,7 @@ Details: [identity.md](identity.md).
 | `AppPlatform` entry point, client info, `GET /v1/me` | Done |
 | Google sign-in on Android (Credential Manager, own Kotlin code), merge dialog | Done, verified on the emulator |
 | Logout | Done, verified on the emulator |
+| `signInWithAccount` for app accounts, demo with a stand-in login | Done |
 | Google / Apple sign-in on iOS | Deferred |
 | Account deletion, demo button with confirmation | Done, verified on the emulator |
 

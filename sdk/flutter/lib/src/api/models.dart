@@ -2,7 +2,7 @@
 enum DevicePlatform { android, ios }
 
 /// Provider of a linked account.
-enum AuthProvider { google, apple }
+enum AuthProvider { google, apple, external }
 
 /// Response of every endpoint that issues tokens.
 class TokenPair {
