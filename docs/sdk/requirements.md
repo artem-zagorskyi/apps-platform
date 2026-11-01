@@ -3,14 +3,15 @@
 What the Flutter SDK must do to work with the platform server as it exists
 today, and what a wrapper app must provide on top of it. This is the contract
 for the SDK, not its final API. Server details: [identity.md](../platform/identity.md),
-[events.md](../platform/events.md), [config.md](../platform/config.md).
+[events.md](../platform/events.md), [config.md](../platform/config.md),
+[billing.md](../platform/billing.md).
 
 ## Responsibilities
 
 | Layer | Owns |
 |-------|------|
-| SDK (`sdk/flutter/`) | Installation id, tokens, every call to the platform server, retries, refresh, provider sign-in plumbing, user change notifications, consent state, event queue and standard events, remote config and exposures |
-| Wrapper app | Screens and texts, the merge dialog, the consent screen, its own tracking plan and parameter declarations, deciding what counts as local progress, reacting to user changes, app-specific configuration |
+| SDK (`sdk/flutter/`) | Installation id, tokens, every call to the platform server, retries, refresh, provider sign-in plumbing, user change notifications, consent state, event queue and standard events, remote config and exposures, subscriptions (entitlements, purchases, restore) |
+| Wrapper app | Screens and texts, the merge dialog, the consent screen, the paywall, its own tracking plan and parameter declarations, deciding what counts as local progress, reacting to user changes, app-specific configuration |
 
 The wrapper app never talks to platform endpoints directly and never touches tokens.
 
@@ -39,6 +40,7 @@ detected by the SDK.
 | Usage state: last app version, current session | Secure storage | Install and update detection, sessions across restarts |
 | Event queue | SQLite file `app_platform_events.db` | Events wait here until the server confirms them |
 | Remote config: active, pending, ETag, fetch time | Secure storage | Values without a network; the next config waits for the next launch |
+| Entitlements: last server answer, fetch time | Secure storage | Access without a network; tied to its user |
 
 Secure storage: `flutter_secure_storage` (Android Keystore, iOS Keychain).
 
@@ -65,6 +67,8 @@ therefore offer "save progress with Google" at good moments.
 7. Load the stored config. On the first launch wait up to 1.5 seconds for
    the server; otherwise apply the config fetched during the previous launch
    and fetch the next one in the background.
+8. Load the cached entitlements. In the background send active store
+   purchases to the server and fetch the entitlements.
 
 `init` never fails because of the network: it waits for the server at most
 3 seconds for the session (plus 1.5 seconds for the config on the first
@@ -358,6 +362,38 @@ not when the value does not fit this app version, not without analytics
 consent (the next read after consent records it). The app therefore reads a
 parameter where the person sees its effect, not in advance.
 
+## Subscriptions
+
+`AppPlatform.billing` (`BillingManager`). Server side and the steps to go
+live: [billing.md](../platform/billing.md).
+
+- `entitlements` is a `ValueListenable<Entitlements>`:
+  `platform.billing.entitlements.value.has('premium')`. It comes from the
+  server; the device keeps the last answer per user and counts an
+  entitlement until three days past its `expires_at`.
+- Refreshed at start-up, on user changes, after a purchase and on return to
+  the app when older than an hour.
+- `products(ids)`: localized prices, base plans and offers from the store.
+  Which ids to show is the app's choice (in code or remote config).
+- `purchase(product, offer:, paywall:)`: our user id goes into the purchase;
+  the SDK sends it to the server and completes it in the store only after
+  the server answered. Outcomes: `purchased`, `cancelled`, `pending`
+  (delayed payment; access follows by itself), `processing` (paid, server
+  unreachable; sent again at the next start-up), `signInRequired` (with a
+  masked email), `ownedByOtherAccount`, `failed`.
+- `restore()`: active store purchases go to the server; per purchase
+  `granted`, `signInRequired` with a masked email, `ownedByOtherAccount` or
+  `failed`. The app shows the result.
+- At start-up active store purchases are sent to the server silently: open
+  purchases are delivered, and a purchase of an anonymous user is taken over
+  after a reinstall.
+- `paywallShown('onboarding')` records `paywall_shown`; purchases record
+  `purchase_started` and `purchase_finished` themselves.
+- Without a usable store (iOS for now, no Play Store) `products`, `purchase`
+  and `restore` throw `StoreUnavailableException`; the app hides the paywall.
+- Deleting the account does not cancel a subscription; the app says so
+  before deleting.
+
 ## User changes
 
 The SDK exposes a stream of user changes with the reason: `signed_up`,
@@ -390,7 +426,9 @@ in [identity.md](../platform/identity.md#error-codes)). Network failures,
 - Handling of user changes: reload or clear local data.
 - A prompt to save progress with Google after meaningful progress.
 - An account deletion entry point with a confirmation (required by Google Play).
-- Later: paywall.
+- A paywall: product ids, `paywallShown`, purchase outcomes, a restore
+  button, and a hint to sign in for `signInRequired`.
+- A warning before account deletion while a subscription is active.
 
 ## Later systems in the SDK
 
@@ -398,8 +436,6 @@ Each will get its own section when the server part is designed:
 
 - **Device details**: collected and sent only with analytics consent.
 - **Sync**: local database, outbox, pull by cursor.
-- **Subscriptions**: Play Billing with `obfuscatedAccountId`, server
-  verification, entitlements.
 - **Push**: FCM token registration, open tracking.
 
 ## Testing
@@ -419,6 +455,10 @@ The SDK is tested on the host without a device:
   offline, exposures.
 - Account deletion: device handover, queued events dropped, consent asked
   again, offline.
+
+- Billing against the fake API and a fake store: offline cache and grace,
+  refresh on return, user changes, stale answers, purchase outcomes,
+  unreachable server, restore, take-over at start-up, funnel events.
 
 An end-to-end check runs the demo app on the emulator against a local
 platform server.

@@ -58,8 +58,9 @@ became the person's history):
    funnels and sessions keep their shape. Repeatable: anonymized rows no
    longer match.
 2. **Account data, in one transaction**: sessions, linked accounts, nonces,
-   device data of installations, merge records are deleted; the user becomes
-   `deleted` with `deleted_at`.
+   device data of installations, merge records are deleted; purchases are
+   anonymized (owner, store account reference and store payload removed,
+   amounts kept); the user becomes `deleted` with `deleted_at`.
 3. **`user.deleted`** goes to the app backend in the same transaction
    ([webhooks](jobs.md#webhooks-to-app-backends)), so it deletes its domain data.
 
@@ -79,6 +80,7 @@ more than an hour late.
 | Anonymized events | Like all events | Statistics; no link to the person |
 | Webhook delivery of `user.deleted` | 90 days | Delivery history |
 | Installation rows | Without device data | Referenced by the consent log |
+| Purchases and their history | Anonymized: no owner, no store payload; amounts and dates kept | Revenue records ([billing](billing.md#lifecycle)) |
 
 Needs legal review, like the 26-month event retention.
 
@@ -88,6 +90,9 @@ Needs legal review, like the 26-month event retention.
 the device gets the fresh user, `userChanges` reports `accountDeleted`,
 consent and config reset, and events still queued for the deleted user are
 dropped, not sent.
+
+An active subscription is not cancelled: only the person can cancel it in
+the store. The app says so before deleting.
 
 ## Useful queries
 

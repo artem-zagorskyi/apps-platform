@@ -83,6 +83,7 @@ In psql: `\dn` schemas, `\dt identity.*` tables, `\d <table>` columns,
 | Upload an app's parameter declarations | `pnpm config:schema <app slug> <path to remote_config.json>` |
 | Publish a config version | `pnpm config:publish <app slug> <path to config.json> [comment]` |
 | Print a config version | `pnpm -s config:show <app slug> [version]` |
+| Upload an app's product catalog | `pnpm billing:catalog <app slug> <path to catalog.json>` |
 
 Before a commit: `pnpm test` and `pnpm typecheck`.
 
@@ -232,6 +233,10 @@ select id, status, deletion_scheduled_at, deleted_at from identity.users where s
 -- Config versions and exposures
 select number, comment, created_at from config.versions order by number desc;
 select properties from events.events where name = 'experiment_exposed' order by received_at desc limit 5;
+
+-- Purchases and their history
+select product_id, state, expires_at, user_id from billing.purchases order by updated_at desc limit 5;
+select kind, source, from_state, to_state, occurred_at from billing.purchase_events order by occurred_at desc limit 10;
 ```
 
 More queries: [events.md](platform/events.md#useful-queries),

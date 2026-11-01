@@ -79,16 +79,16 @@ Shared enums: `platform` (`android`, `ios`), `auth_provider` (`google`, `apple`)
 
 **`user_merges`**: `source_user_id` (merged away), `target_user_id`,
 `installation_id`, `strategy` (`keep_target`, `keep_source`, `merge`),
-`created_at`, `notified_at`.
+`created_at`.
 
 - Both users must belong to the same app; a user can be merged away only once;
   no self-merge.
-- `notified_at` stays null until the app backend acknowledges the merge
-  (delivery not implemented yet).
+- The app backend learns about the merge through the `user.merged` webhook;
+  delivery state is in `webhooks.deliveries` ([jobs.md](jobs.md#webhooks-to-app-backends)).
 
 **`consents`**: append-only log of `(user_id, installation_id, purpose,
 granted, policy_version, region, source, created_at)`. The current state is
-the latest row per purpose. Table exists; API not implemented yet.
+the latest row per purpose. API: [`GET /v1/consent`](#get-v1consent).
 
 **`auth_nonces`**: `installation_id`, `nonce_hash` (SHA-256 hex, unique),
 `created_at`, `expires_at`, `used_at`.
@@ -299,15 +299,17 @@ Merge (current anonymous user B into A):
 1. Revoke B's live sessions as `merged`.
 2. Set B to `merged`, `merged_into = A`.
 3. Move the installation to A.
-4. Insert a `user_merges` row with the strategy, `notified_at` null.
-5. Issue a new session for A on this installation.
+4. Insert a `user_merges` row with the strategy and queue `user.merged`
+   to the app backend.
+5. Move B's purchases to A.
+6. Issue a new session for A on this installation.
 
 The platform's own data is not moved: B's history stays under B and is linked
 to A through `merged_into`. Domain data is the app backend's business: it
 will receive the merge with the chosen strategy (`keep_target` discard B's
 progress, `keep_source` copy B's progress into A, `merge` combine both) and
-act on it. Subscriptions are tied to the store account and come back through
-purchase restore.
+act on it. Purchases of B move to A in the same transaction
+([billing](billing.md#lifecycle)).
 
 Parallel linking of the same account from two devices is caught by the unique
 constraint and reported as `account_exists`.
@@ -447,10 +449,8 @@ Records decisions. Auth required. Rate limit 20/min per IP.
   notifications. One developer key for all apps in `.env` (`APPLE_TEAM_ID`,
   `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`). Waiting for an Apple Developer account.
 - **Device details update** with analytics consent, and geo from IP.
-- **Account deletion**: `DELETE /v1/me`, scheduled erasure in every module,
-  Apple token revocation, notifying the app backend.
-- **Merge delivery** to app backends (signed webhook with retries, sets `notified_at`).
-- **Cleanup job** for nonces of abandoned installations.
+- **Apple token revocation** on account deletion (with Apple sign-in).
+  Deletion itself: [account-deletion.md](account-deletion.md).
 - **Trusted proxy** configuration for rate limits behind Caddy.
 
 ## Tests

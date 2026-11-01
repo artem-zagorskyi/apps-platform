@@ -112,6 +112,10 @@ Recorded by the SDK itself (`tracking-plan/platform.yaml`). All are
 | `session_started` | — | A new session began |
 | `session_ended` | `duration_seconds` | The previous session ended; recorded when the next one starts |
 | `screen_viewed` | `screen` | The app called `platform.trackScreen('paywall')` |
+| `experiment_exposed` | `experiment`, `variant`, `config_version` | A parameter decided by an experiment was read ([config](config.md#exposures)) |
+| `paywall_shown` | `paywall` | The app called `platform.billing.paywallShown('onboarding')` |
+| `purchase_started` | `product_id`, `paywall` | The payment sheet opened ([billing](billing.md)) |
+| `purchase_finished` | `product_id`, `result` | A purchase attempt ended: `purchased`, `cancelled`, `pending`, `processing`, `sign_in_required`, `owned_by_other_account` or `failed` |
 
 Sessions:
 
@@ -126,8 +130,9 @@ recorded" and "session start not recorded". It records `app_installed` and
 `session_started` once consent is given, with the consent time. No behaviour
 is stored before consent.
 
-Account and consent changes are not events: the server already has them in
-`identity.*` tables.
+Account, consent and purchase changes are not events: the server already has
+them in `identity.*` and `billing.*` tables. Revenue comes from
+`billing.purchases`, never from event properties.
 
 ## `POST /v1/events`
 

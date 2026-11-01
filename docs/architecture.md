@@ -46,14 +46,14 @@ flowchart LR
 
 ## Data separation
 
-- **Platform database**: users, installations, sessions, consents, and later
-  events, config, experiments, subscriptions, push tokens, decision logs.
+- **Platform database**: users, installations, sessions, consents, events,
+  config and experiments, purchases, and later push tokens and decision logs.
   One database for all apps; every row carries an `app_id`.
 - **App databases**: domain data of each app, owned by that app's backend.
 - The only link between them is `user_id` (UUID). No cross-database foreign keys.
 
 Inside the platform database each module has its own Postgres schema
-(`apps`, `identity`, later `events`, `config`, ...).
+(`apps`, `identity`, `events`, `config`, `webhooks`, `billing`).
 
 Tables that belong to a user reference the pair `(user_id, app_id)` through a
 composite foreign key. The database itself refuses rows that would mix data of
@@ -73,8 +73,12 @@ platform/
   src/
     core/              config, database, errors, shared column helpers
     modules/
-      apps/            schema.ts, service.ts
-      identity/        schema.ts, service.ts, routes.ts, tokens.ts, ...
+      apps/            apps, platforms, OAuth clients, consent policies
+      identity/        users, sessions, sign-in, consent, account deletion
+      events/          tracking plans, event ingestion
+      config/          remote config and experiments
+      webhooks/        notifications to app backends
+      billing/         catalog, purchases, store providers
     app.ts             builds the Fastify instance (used by tests)
     server.ts          starts it, owns process lifecycle and the DB pool
   migrations/          generated SQL migrations, committed
@@ -115,7 +119,7 @@ Rules:
 | Database        | Postgres 18, Drizzle ORM        | Typed schema, generated migrations, native `uuidv7()` |
 | Validation      | zod                             | One schema language for env, requests and responses |
 | Tokens          | jose                            | JWT signing and verification, remote JWKS, no dependencies |
-| Background jobs | pg-boss (planned)               | Job queue inside Postgres, no Redis |
+| Background jobs | pg-boss                         | Job queue inside Postgres, no Redis |
 | Admin panel     | Next.js, JavaScript             | Management UI and built-in charts |
 | Tests           | Vitest against real Postgres    | Constraints, locks and transactions are tested for real |
 | Deployment      | Docker Compose, Caddy           | Single VPS, automatic HTTPS |
@@ -181,6 +185,9 @@ otherwise all users share one IP and one rate limit bucket.
 | Provider name and photo are not stored | Not needed; less personal data |
 | Apple sign-in on iOS only, implemented later | Needs an Apple Developer account; Android users use Google |
 | No Metabase; charts inside the admin | Fewer containers, one UI |
+| Entitlements computed from purchases on every request | A stored copy could drift from the purchases |
+| Store providers behind a normalized purchase | The App Store plugs in without changing the core |
+| A purchase is completed on the device only after the server answered | Nothing is lost when the server is unreachable during a purchase |
 | Tests run against a real test database | Mocks would not test constraints, locks and transactions |
 
 ## Roadmap

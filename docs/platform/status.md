@@ -4,7 +4,8 @@ What is done and what is left for stage 0. Updated together with every
 feature commit.
 
 Legend: **Done** · **Partial** · **Planned** · **Deferred** (waiting for an
-external dependency)
+external dependency) · **Skeleton** (built and tested against fakes, waiting
+for a live check)
 
 ## Overview
 
@@ -16,7 +17,7 @@ external dependency)
 | 2. Event tracking | Done | Done | Planned |
 | 3. Offline-first sync | Designed, deferred | Designed, deferred | — |
 | 4. Remote config & A/B tests | Done | Done | Planned |
-| 5. Subscriptions | Planned | Planned | Planned |
+| 5. Subscriptions | Skeleton | Skeleton | Planned |
 | 6. Attribution | Planned | Planned | — |
 | 7. Push notifications | Planned | Planned | Planned |
 | 8. Dashboards & alerts | Planned | — | Planned |
@@ -213,13 +214,51 @@ Decisions:
 - Holdout is off by default; it will be switched and sized in the admin panel.
 - Results count exposed users only.
 
-## 3, 5–9. Other systems
+## 5. Subscriptions
+
+Details: [billing.md](billing.md). Built and tested against fake stores; a
+live check needs a Play Console account ([going live](billing.md#going-live)).
+
+### Server
+
+| Item | Status |
+|------|--------|
+| Catalog per app and store, `pnpm billing:catalog`, archive instead of delete | Done |
+| Purchases with normalized states and history; entitlements computed per request | Done |
+| `GET /v1/billing/entitlements`, `POST /v1/purchases` with ownership rules | Done |
+| Acknowledgement, transfer on merge, anonymization on account deletion | Done |
+| `entitlements.changed` webhook | Done |
+| Google Play provider: Play Developer API, Pub/Sub notifications, refund reconciliation, overdue checks | Skeleton: needs a Play Console account |
+| App Store provider (StoreKit, server notifications) | Deferred: needs an Apple Developer account |
+| One-time products | Planned |
+| Revenue in the dashboards | Planned: with the dashboards |
+
+### Flutter SDK
+
+| Item | Status |
+|------|--------|
+| `platform.billing`: entitlements with an offline cache, products, purchase, restore | Done |
+| Purchases completed only after the server answered; open purchases sent again at start-up | Done |
+| Funnel events `paywall_shown`, `purchase_started`, `purchase_finished` | Done |
+| Google Play through `in_app_purchase` behind `StoreClient` | Skeleton: needs a Play Console account |
+| StoreKit on iOS | Deferred |
+| Demo paywall | Planned: with the Play Console account |
+
+Decisions:
+
+- The server decides access; the device only shows it and keeps the last
+  answer until three days past expiry.
+- A purchase of an anonymous or deleted user goes to whoever restores it; a
+  purchase of a linked account asks to sign in to that account.
+- Purchase records are kept anonymized after account deletion, for revenue
+  records. Needs legal review.
+- The catalog is a JSON file uploaded with a script; the admin panel later.
+
+## 3, 6–9. Other systems
 
 | Item | Status |
 |------|--------|
 | Offline-first sync: optional toolkit for app backends ([design](../sync/design.md)) | Designed; built with the first app that needs offline data |
-| Play Billing verification, RTDN, entitlements, restore | Planned |
-| App Store (StoreKit, server notifications) | Deferred |
 | Install Referrer, server-side conversions to ad networks | Planned |
 | FCM tokens, templates, scheduler, weekly budget, delivery logs | Planned |
 | Cohort retention, funnels, user states, Telegram alerts | Planned |

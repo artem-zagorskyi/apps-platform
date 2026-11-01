@@ -87,6 +87,13 @@ Docker the variables come from Compose.
 | `PLATFORM_TRACKING_PLAN_PATH` | `../tracking-plan/platform.json` | Standard platform events, read at start-up |
 | `GEOIP_DB_PATH` | not set | Country database (`.mmdb`); without it the country of events is empty |
 | `GOOGLE_WEB_CLIENT_ID` | not set | Read by `pnpm db:seed` only: registers the Google web client for the demo app |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` | not set | Play service account key (JSON file); without it Play purchases are refused with `store_unavailable` |
+| `GOOGLE_PUBSUB_AUDIENCE` | not set | Audience of the Pub/Sub push tokens of Play notifications |
+| `GOOGLE_PUBSUB_SERVICE_ACCOUNT` | not set | Service account Pub/Sub signs those pushes with |
+
+Optional variables are left out of `.env` while unused, not set to an empty
+string: an empty value fails validation. Setting up the Play variables:
+[billing.md](billing.md#going-live).
 
 When adding a variable: add it to the schema in `config.ts`, to
 `.env.example`, and to your own `.env`. Never put real secrets into
@@ -111,6 +118,7 @@ All run from `platform/`.
 | `pnpm config:schema <slug> <file>` | Upload an app's parameter declarations (see [config.md](config.md)) |
 | `pnpm config:publish <slug> <file> [comment]` | Publish a config document as a new version |
 | `pnpm -s config:show <slug> [version]` | Print a config version as JSON |
+| `pnpm billing:catalog <slug> <file>` | Upload an app's product catalog (see [billing.md](billing.md#catalog)) |
 | `pnpm keys:generate` | Print a new `JWT_SIGNING_KEYS` line |
 | `pnpm keys:data` | Print a new `DATA_ENCRYPTION_KEY` line |
 | `pnpm identity:key <slug> [--revoke <kid>]` | Register a key for an app backend's identity assertions (prints the private half) or revoke one |
@@ -175,6 +183,7 @@ Helpers in `test/`:
 | `helpers.ts` | `resetDatabase`, `seedApp` (with an "ask everyone" consent policy), `signUpViaApi`, `linkFakeGoogleAccount` |
 | `fake-google.ts` | `installFakeGoogle`, `signFakeGoogleToken` with any claims, attacker key |
 | `jobs.ts` | `queuedJobs`: jobs sent while no queue runs |
+| `fake-store.ts` | `FakeStore`: a Google Play stand-in; tests add purchases and change them |
 
 Tests live next to the code as `*.test.ts`. New behaviour comes with tests in
 the same commit.

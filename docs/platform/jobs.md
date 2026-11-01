@@ -50,6 +50,9 @@ running job, so a stopped worker does not pile up a backlog.
 | `webhooks-delete-old-deliveries` | daily 03:50 | Deletes webhook deliveries older than 90 days |
 | `identity-erase-overdue` | daily 04:20 | Safety net: erases users whose erasure is more than an hour late (logs a warning) |
 | `identity-delete-old-consents` | daily 04:40 | Deletes consent records of users deleted more than three years ago |
+| `billing-delete-old-notifications` | daily 03:55 | Deletes store notifications received more than 90 days ago |
+| `billing-reconcile-voided` | daily 05:10 | Marks purchases refunded from Google's list of voided purchases (catches missed notifications) |
+| `billing-refresh-overdue` | hourly at :25 | Asks the store again about purchases past their expiry, in case a notification was missed (logs a warning) |
 
 ### Jobs on demand
 
@@ -57,6 +60,7 @@ running job, so a stopped worker does not pile up a backlog.
 |-----|---------|---------|
 | `webhooks-deliver` | `notifyApp` | 20, from 30 s doubling up to 6 h: about three days |
 | `identity-erase-user` | `DELETE /v1/me`, 20 minutes later | 10, from 1 min up to 1 h |
+| `billing-process-notification` | A Play notification was received | 20, from 1 min up to 1 h |
 
 ### Tests
 
@@ -85,9 +89,12 @@ The platform tells an app's own backend about changes it must act on.
 |------|------|--------|
 | `user.merged` | An anonymous user was merged into an existing account | `mergeId`, `sourceUserId`, `targetUserId`, `strategy` (`keep_target`, `keep_source`, `merge`), `mergedAt` |
 | `user.deleted` | A deleted account was erased | `userId`, `mergedUserIds` (users merged into it earlier), `deletedAt` |
+| `entitlements.changed` | A user's access changed: purchase, renewal, expiry, refund, transfer, merge | `userId`, `entitlements` (each `key`, `productId`, `store`, `state`, `expiresAt`, `willRenew`) |
 
 The backend moves domain data on `user.merged` (by the strategy) and
-deletes the user's domain data on `user.deleted`.
+deletes the user's domain data on `user.deleted`. On `entitlements.changed`
+it updates the user's paid features; the list is the whole current state,
+not a difference.
 
 ### Setting the endpoint
 
@@ -161,4 +168,3 @@ pnpm webhooks:set demo http://127.0.0.1:4000/platform-webhooks
 
 - Workers in their own process (when jobs start to slow down requests)
 - Redelivery of failed or `no_endpoint` notifications from the admin panel
-- Purchase notifications (with subscriptions)
