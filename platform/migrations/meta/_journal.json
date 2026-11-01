@@ -78,6 +78,13 @@
       "when": 1793551382320,
       "tag": "0010_add_external_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793558491828,
+      "tag": "0011_add_billing",
+      "breakpoints": true
     }
   ]
 }

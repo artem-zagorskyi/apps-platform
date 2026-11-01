@@ -1,0 +1,6 @@
+{
+  "format_version": 1,
+  "products": [
+    { "store": "google_play", "product_id": "premium", "kind": "subscription", "entitlements": ["premium"] }
+  ]
+}

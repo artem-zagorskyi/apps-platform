@@ -20,7 +20,8 @@
     "config:show": "tsx --env-file=.env scripts/show-config.ts",
     "keys:data": "tsx scripts/generate-data-key.ts",
     "webhooks:set": "tsx --env-file=.env scripts/set-webhook.ts",
-    "identity:key": "tsx --env-file=.env scripts/identity-key.ts"
+    "identity:key": "tsx --env-file=.env scripts/identity-key.ts",
+    "billing:catalog": "tsx --env-file=.env scripts/upload-catalog.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",

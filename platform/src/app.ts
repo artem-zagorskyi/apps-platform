@@ -14,6 +14,7 @@ import { consentRoutes } from './modules/identity/consent-routes.js';
 import { eventsRoutes } from './modules/events/routes.js';
 import { getPlatformPlan } from './modules/events/plans-service.js';
 import { configRoutes } from './modules/config/routes.js';
+import { billingRoutes } from './modules/billing/routes.js';
 
 export interface BuildAppOptions {
   // Tests only: receive log lines at info level instead of the configured output
@@ -94,6 +95,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(consentRoutes);
   await app.register(eventsRoutes);
   await app.register(configRoutes);
+  await app.register(billingRoutes);
 
   return app;
 }
