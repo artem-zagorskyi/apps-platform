@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../billing/billing_models.dart';
 import '../errors.dart';
 import '../events/event_queue.dart';
 import 'models.dart';
@@ -164,6 +165,27 @@ class PlatformApi {
     return _parse(
       () => ConfigResponse(config: ServerConfig.fromJson(json), etag: response.headers['etag']),
     );
+  }
+
+  /// What the current user has access to right now
+  Future<List<Entitlement>> getEntitlements(String accessToken) async {
+    final json = await _send('GET', '/v1/billing/entitlements', accessToken: accessToken);
+    return _parse(() => Entitlement.listFromJson(json['entitlements']));
+  }
+
+  /// Registers a purchase made in the app or found in the store on restore
+  Future<PurchaseRegistration> registerPurchase(
+    String accessToken, {
+    required BillingStore store,
+    required String productId,
+    required String purchaseKey,
+  }) async {
+    final json = await _send('POST', '/v1/purchases', accessToken: accessToken, body: {
+      'store': store.wireName,
+      'productId': productId,
+      'purchaseKey': purchaseKey,
+    });
+    return _parse(() => PurchaseRegistration.fromJson(json));
   }
 
   // Same mapping as in _send, for requests that handle some statuses themselves

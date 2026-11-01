@@ -59,6 +59,9 @@ abstract final class ApiErrorCode {
   static const accountUnavailable = 'account_unavailable';
   static const noLinkedAccount = 'no_linked_account';
 
+  static const unknownProduct = 'unknown_product';
+  static const invalidPurchase = 'invalid_purchase';
+
   /// Used when an error response had no readable code
   static const unknown = 'unknown';
 }
@@ -74,4 +77,10 @@ final class ProviderSignInException extends AppPlatformException {
 
   @override
   String toString() => 'ProviderSignInException($code): $message';
+}
+
+/// The app store cannot be used on this device: no store app, no store
+/// account, or an unsupported platform. Hide or disable the paywall.
+final class StoreUnavailableException extends AppPlatformException {
+  const StoreUnavailableException(super.message);
 }

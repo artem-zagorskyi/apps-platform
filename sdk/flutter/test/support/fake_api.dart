@@ -11,6 +11,15 @@ const testClient = ClientInfo(
   osVersion: '17',
 );
 
+Entitlement premiumUntil(DateTime expiresAt) => Entitlement(
+      key: 'premium',
+      productId: 'premium',
+      store: BillingStore.googlePlay,
+      state: 'active',
+      expiresAt: expiresAt,
+      willRenew: true,
+    );
+
 const deadRefreshToken = ApiException(
   statusCode: 401,
   code: ApiErrorCode.invalidRefreshToken,
@@ -260,5 +269,54 @@ class FakeApi implements PlatformApi {
     final tag = '"$userId:${config.version}"';
     if (etag == tag) return null;
     return ConfigResponse(config: config, etag: tag);
+  }
+
+    // Billing server: entitlements per user; a registration grants premium
+  // unless a test says otherwise
+  final _entitlementsByUser = <String, List<Entitlement>>{};
+  final purchaseRegistrations = <({String userId, String productId, String purchaseKey})>[];
+  int entitlementRequests = 0;
+  AppPlatformException? billingFailure;
+
+  /// Runs before the entitlements answer, e.g. to hold it
+  Future<void> Function()? onGetEntitlements;
+  Future<PurchaseRegistration> Function(String userId, String purchaseKey)? onRegisterPurchase;
+
+  void setServerEntitlements(String userId, List<Entitlement> entitlements) =>
+      _entitlementsByUser[userId] = entitlements;
+
+  @override
+  Future<List<Entitlement>> getEntitlements(String accessToken) async {
+    entitlementRequests++;
+    final userId = _userOf(accessToken);
+    await onGetEntitlements?.call();
+
+    final failure = billingFailure;
+    if (failure != null) throw failure;
+    return List.of(_entitlementsByUser[userId] ?? const <Entitlement>[]);
+  }
+
+  @override
+  Future<PurchaseRegistration> registerPurchase(
+    String accessToken, {
+    required BillingStore store,
+    required String productId,
+    required String purchaseKey,
+  }) async {
+    final failure = billingFailure;
+    if (failure != null) throw failure;
+
+    final userId = _userOf(accessToken);
+    purchaseRegistrations.add((userId: userId, productId: productId, purchaseKey: purchaseKey));
+    final handler = onRegisterPurchase;
+    if (handler != null) return handler(userId, purchaseKey);
+
+    final granted = [premiumUntil(_now().add(const Duration(days: 30)))];
+    _entitlementsByUser[userId] = granted;
+    return PurchaseRegistration(
+      status: RegistrationStatus.owned,
+      maskedEmail: null,
+      entitlements: granted,
+    );
   }
 }
