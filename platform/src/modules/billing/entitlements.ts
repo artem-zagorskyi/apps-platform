@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '../../core/db.js';
+import { db, type Tx } from '../../core/db.js';
 import { products, purchases } from './schema.js';
 import type { PurchaseState, Store } from './types.js';
 
@@ -58,10 +58,18 @@ export function computeEntitlements(items: PurchaseWithEntitlements[], now: Date
   return [...best.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
+// Anything that can run a select: the database or a transaction
+type Reader = Pick<Tx, 'select'>;
+
 // Entitlements of a user right now. Purchases of products missing from the
 // catalog grant nothing.
-export async function getEntitlements(appId: string, userId: string, now: Date): Promise<Entitlement[]> {
-  const rows = await db
+export async function getEntitlements(
+  appId: string,
+  userId: string,
+  now: Date,
+  reader: Reader = db,
+): Promise<Entitlement[]> {
+  const rows = await reader
     .select({
       store: purchases.store,
       productId: purchases.productId,
@@ -82,4 +90,9 @@ export async function getEntitlements(appId: string, userId: string, now: Date):
     .where(and(eq(purchases.appId, appId), eq(purchases.userId, userId), inArray(purchases.state, GRANTING_STATES)));
 
   return computeEntitlements(rows, now);
+}
+
+// For responses and notifications: dates as ISO strings
+export function serializeEntitlements(entitlements: Entitlement[]) {
+  return entitlements.map((e) => ({ ...e, expiresAt: e.expiresAt?.toISOString() ?? null }));
 }

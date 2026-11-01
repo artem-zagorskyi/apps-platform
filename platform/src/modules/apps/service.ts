@@ -106,3 +106,29 @@ export async function revokeIdentityKey(appId: string, kid: string): Promise<boo
     .where(and(eq(identityKeys.appId, appId), eq(identityKeys.kid, kid), isNull(identityKeys.revokedAt)));
   return (result.rowCount ?? 0) > 0;
 }
+
+// Android package name or iOS bundle id of the app on a platform
+export async function getBundleId(appId: string, platform: Platform): Promise<string | null> {
+  const [row] = await db
+    .select({ bundleId: appPlatforms.bundleId })
+    .from(appPlatforms)
+    .where(and(eq(appPlatforms.appId, appId), eq(appPlatforms.platform, platform)));
+  return row?.bundleId ?? null;
+}
+
+// The app with this package name (Android) or bundle id (iOS)
+export async function findAppByBundleId(platform: Platform, bundleId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ appId: appPlatforms.appId })
+    .from(appPlatforms)
+    .where(and(eq(appPlatforms.platform, platform), eq(appPlatforms.bundleId, bundleId)));
+  return row?.appId ?? null;
+}
+
+// Every app registered on a platform, with its package name or bundle id
+export async function listBundleIds(platform: Platform): Promise<{ appId: string; bundleId: string }[]> {
+  return db
+    .select({ appId: appPlatforms.appId, bundleId: appPlatforms.bundleId })
+    .from(appPlatforms)
+    .where(eq(appPlatforms.platform, platform));
+}

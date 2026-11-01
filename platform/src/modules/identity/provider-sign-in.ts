@@ -22,6 +22,7 @@ import {
 } from './service.js';
 import type { AccessTokenClaims } from './tokens.js';
 import { notifyApp } from '../webhooks/service.js';
+import { transferPurchasesOnMerge } from '../billing/lifecycle.js';
 
 export type MergeStrategy = (typeof mergeStrategyEnum.enumValues)[number];
 
@@ -185,6 +186,8 @@ export async function signInWithProvider(
         strategy,
         mergedAt: merge.createdAt.toISOString(),
       });
+
+      await transferPurchasesOnMerge(tx, auth.appId, auth.userId, existing.userId, now);
 
       await tx
         .update(authIdentities)

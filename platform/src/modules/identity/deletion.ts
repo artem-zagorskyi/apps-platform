@@ -8,6 +8,7 @@ import { notifyApp } from '../webhooks/service.js';
 import { authIdentities, authNonces, consents, installations, sessions, userMerges, users } from './schema.js';
 import { insertSession, issueTokenPair } from './service.js';
 import type { AccessTokenClaims } from './tokens.js';
+import { anonymizePurchases } from '../billing/lifecycle.js';
 
 export const ERASE_JOB = 'identity-erase-user';
 
@@ -131,6 +132,9 @@ export async function eraseUser(userId: string, now: Date): Promise<'erased' | '
     await tx
       .delete(userMerges)
       .where(or(inArray(userMerges.sourceUserId, userIds), inArray(userMerges.targetUserId, userIds)));
+
+    // Kept for revenue records, without the person
+    await anonymizePurchases(tx, userIds, now);
 
     // The row stays as a tombstone: the consent log still refers to it
     await tx.update(users).set({ status: 'deleted', deletedAt: now }).where(eq(users.id, userId));

@@ -88,6 +88,20 @@ export type PlatformWebhook =
       };
     })
   | (WebhookBase & {
+      type: 'entitlements.changed';
+      data: {
+        userId: string;
+        entitlements: {
+          key: string;
+          productId: string;
+          store: 'google_play' | 'app_store';
+          state: string;
+          expiresAt: string | null;
+          willRenew: boolean;
+        }[];
+      };
+    })
+  | (WebhookBase & {
       type: 'user.deleted';
       data: { userId: string; mergedUserIds: string[]; deletedAt: string };
     });

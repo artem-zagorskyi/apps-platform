@@ -151,9 +151,10 @@ The list of migrations is the `migrations/` folder.
   applied before every run.
 - Every test file resets the database in `beforeEach`
   (`TRUNCATE apps.apps CASCADE` empties every table that references apps)
-  and seeds a test app. `events.events` and `events.event_ids` have no
-  foreign keys and keep rows from earlier tests: event tests must not assume
-  they are empty.
+  and seeds a test app. `events.events`, `events.event_ids` and
+  `billing.store_notifications` have no foreign keys to apps and keep rows
+  from earlier tests: tests must not assume they are empty, or clear them
+  themselves.
 - Test files run one after another (`fileParallelism: false`) because they
   share the database.
 - A throwaway signing key is generated per run; tests need no secrets.
@@ -165,6 +166,7 @@ The list of migrations is the `migrations/` folder.
 - Time-dependent cases move timestamps in the database (`rotated_at`,
   `expires_at`) or fake the clock (`vi.useFakeTimers({ toFake: ['Date'] })`)
   instead of waiting.
+    
 
 Helpers in `test/`:
 
