@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../api/platform_api.dart';
 import '../errors.dart';
+import '../events/platform_events.g.dart';
 import '../session/session_manager.dart';
 import '../storage/session_store.dart';
 import 'billing_models.dart';
@@ -12,28 +13,33 @@ import 'store_client.dart';
 
 enum PurchaseOutcome {
   /// The server confirmed it; entitlements are updated
-  purchased,
+  purchased('purchased'),
 
   /// The person closed the payment sheet
-  cancelled,
+  cancelled('cancelled'),
 
   /// Waiting for a delayed payment; entitlements update by themselves
   /// once it is paid
-  pending,
+  pending('pending'),
 
   /// Paid, but the server could not be reached. Nothing is lost: the SDK
   /// sends it again at the next start-up. Show "processing".
-  processing,
+  processing('processing'),
 
   /// The purchase belongs to a linked account; offer to sign in to it
   /// (see [PurchaseResult.maskedEmail])
-  signInRequired,
+  signInRequired('sign_in_required'),
 
   /// The purchase belongs to another account signed in elsewhere
-  ownedByOtherAccount,
+  ownedByOtherAccount('owned_by_other_account'),
 
   /// The store or the server refused it
-  failed,
+  failed('failed');
+
+  const PurchaseOutcome(this.wireName);
+
+  /// As recorded in purchase_finished
+  final String wireName;
 }
 
 class PurchaseResult {
@@ -65,11 +71,12 @@ class RestoredPurchase {
 /// The server decides access; the device keeps the last answer for
 /// launches without a network.
 class BillingManager {
-  BillingManager({
+    BillingManager({
     required this._session,
     required this._api,
     required this._store,
     required KeyValueStore storage,
+    this._events,
     DateTime Function()? clock,
   })  : _cache = _EntitlementsCache(storage),
         _clock = clock ?? DateTime.now;
@@ -82,6 +89,8 @@ class BillingManager {
   final StoreClient _store;
   final _EntitlementsCache _cache;
   final DateTime Function() _clock;
+  // Funnel events; null in tests that do not check them
+  final PlatformEvents? _events;
 
   final _entitlements = ValueNotifier<Entitlements>(Entitlements.empty);
   final Map<String, Completer<PurchaseResult>> _waiting = {};
@@ -145,6 +154,10 @@ class BillingManager {
     unawaited(tryRefresh());
   }
 
+  /// Records that the app showed a paywall (paywall_shown). [paywall] is a
+  /// short name chosen by the app, e.g. onboarding or settings.
+  void paywallShown(String paywall) => _events?.paywallShown(paywall: paywall);
+
   /// Products with prices from the store. Which ids to show is the app's
   /// choice (in code or from remote config).
   /// Throws StoreUnavailableException without a usable store.
@@ -154,10 +167,15 @@ class BillingManager {
   }
 
   /// Buys [product], with [offer] (a base plan or an offer of it) when given.
+  /// [paywall] names where the purchase started, for the funnel.
   /// Throws StoreUnavailableException without a usable store and
   /// NetworkException / ServerException when the device has no user yet and
   /// the server is unreachable; the payment sheet is not opened then.
-  Future<PurchaseResult> purchase(StoreProduct product, {StoreOffer? offer}) async {
+  Future<PurchaseResult> purchase(
+    StoreProduct product, {
+    StoreOffer? offer,
+    String paywall = 'default',
+  }) async {
     await _requireStore();
     // The purchase records our user id: the device needs a user first
     await _session.accessToken();
@@ -167,6 +185,14 @@ class BillingManager {
     if (_waiting.containsKey(product.id)) {
       throw StateError('A purchase of ${product.id} is already in progress');
     }
+
+    _events?.purchaseStarted(productId: product.id, paywall: paywall);
+    final result = await _buy(product, offer, userId);
+    _events?.purchaseFinished(productId: product.id, result: result.outcome.wireName);
+    return result;
+  }
+
+  Future<PurchaseResult> _buy(StoreProduct product, StoreOffer? offer, String userId) async {
     final completer = Completer<PurchaseResult>();
     _waiting[product.id] = completer;
 

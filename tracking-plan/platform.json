@@ -87,6 +87,54 @@
           "min": 1
         }
       }
+    },
+    "paywall_shown": {
+      "category": "analytics",
+      "description": "The app showed a paywall (billing.paywallShown)",
+      "properties": {
+        "paywall": {
+          "type": "string",
+          "required": true,
+          "description": "Paywall name chosen by the app, e.g. onboarding or settings",
+          "max_length": 64
+        }
+      }
+    },
+    "purchase_started": {
+      "category": "analytics",
+      "description": "The payment sheet was opened",
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "required": true,
+          "description": "Store product id, e.g. premium",
+          "max_length": 100
+        },
+        "paywall": {
+          "type": "string",
+          "required": true,
+          "description": "Paywall the purchase started from",
+          "max_length": 64
+        }
+      }
+    },
+    "purchase_finished": {
+      "category": "analytics",
+      "description": "A purchase attempt ended",
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "required": true,
+          "description": "Store product id, e.g. premium",
+          "max_length": 100
+        },
+        "result": {
+          "type": "string",
+          "required": true,
+          "description": "purchased, cancelled, pending, processing, sign_in_required, owned_by_other_account or failed",
+          "max_length": 32
+        }
+      }
     }
   }
 }

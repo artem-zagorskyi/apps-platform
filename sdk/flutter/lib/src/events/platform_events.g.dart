@@ -13,6 +13,9 @@ const Set<String> platformEventNames = {
   'session_ended',
   'screen_viewed',
   'experiment_exposed',
+  'paywall_shown',
+  'purchase_started',
+  'purchase_finished',
 };
 
 /// Typed events from platform.yaml.
@@ -92,6 +95,45 @@ class PlatformEvents {
       'experiment': experiment,
       'variant': variant,
       'config_version': configVersion,
+    });
+  }
+
+  /// The app showed a paywall (billing.paywallShown)
+  ///
+  /// - [paywall]: Paywall name chosen by the app, e.g. onboarding or settings
+  void paywallShown({
+    required String paywall,
+  }) {
+    _tracker.track('paywall_shown', EventCategory.analytics, {
+      'paywall': paywall,
+    });
+  }
+
+  /// The payment sheet was opened
+  ///
+  /// - [productId]: Store product id, e.g. premium
+  /// - [paywall]: Paywall the purchase started from
+  void purchaseStarted({
+    required String productId,
+    required String paywall,
+  }) {
+    _tracker.track('purchase_started', EventCategory.analytics, {
+      'product_id': productId,
+      'paywall': paywall,
+    });
+  }
+
+  /// A purchase attempt ended
+  ///
+  /// - [productId]: Store product id, e.g. premium
+  /// - [result]: purchased, cancelled, pending, processing, sign_in_required, owned_by_other_account or failed
+  void purchaseFinished({
+    required String productId,
+    required String result,
+  }) {
+    _tracker.track('purchase_finished', EventCategory.analytics, {
+      'product_id': productId,
+      'result': result,
     });
   }
 }

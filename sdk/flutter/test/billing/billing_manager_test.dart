@@ -5,6 +5,8 @@ import 'package:renvix_sdk/src/billing/billing_manager.dart';
 import 'package:renvix_sdk/src/billing/billing_models.dart';
 import 'package:renvix_sdk/src/billing/store_client.dart';
 import 'package:renvix_sdk/src/errors.dart';
+import 'package:renvix_sdk/src/events/event_tracker.dart';
+import 'package:renvix_sdk/src/events/platform_events.g.dart';
 import 'package:renvix_sdk/src/session/session_manager.dart';
 import 'package:renvix_sdk/src/storage/session_store.dart';
 
@@ -201,6 +203,33 @@ void main() {
       expect(api.entitlementRequests, 1);
       await billing.dispose();
     });
+
+    test('records the funnel', () async {
+      final tracker = _RecordingTracker();
+      final billing = BillingManager(
+        session: session,
+        api: api,
+        store: store,
+        storage: storage,
+        events: PlatformEvents(tracker),
+        clock: () => now,
+      );
+      await billing.start();
+      await _settle();
+      store.onBuy = (p) => paid('token-1');
+
+      billing.paywallShown('onboarding');
+      await billing.purchase(premiumProduct, paywall: 'onboarding');
+
+      expect(tracker.tracked.map((e) => e.name), [
+        'paywall_shown',
+        'purchase_started',
+        'purchase_finished',
+      ]);
+      expect(tracker.tracked[1].properties, containsPair('paywall', 'onboarding'));
+      expect(tracker.tracked.last.properties, containsPair('result', 'purchased'));
+      await billing.dispose();
+    });
   });
 
   group('restore', () {
@@ -241,4 +270,12 @@ void main() {
       await billing.dispose();
     });
   });
+}
+
+class _RecordingTracker implements EventTracker {
+  final tracked = <({String name, Map<String, Object?> properties})>[];
+
+  @override
+  void track(String name, EventCategory category, Map<String, Object?> properties) =>
+      tracked.add((name: name, properties: properties));
 }

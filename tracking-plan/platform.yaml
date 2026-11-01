@@ -72,3 +72,38 @@ events:
         type: integer
         min: 1
         description: Config version the assignment came from
+
+  paywall_shown:
+    category: analytics
+    description: The app showed a paywall (billing.paywallShown)
+    properties:
+      paywall:
+        type: string
+        max_length: 64
+        description: Paywall name chosen by the app, e.g. onboarding or settings
+
+  purchase_started:
+    category: analytics
+    description: The payment sheet was opened
+    properties:
+      product_id:
+        type: string
+        max_length: 100
+        description: Store product id, e.g. premium
+      paywall:
+        type: string
+        max_length: 64
+        description: Paywall the purchase started from
+
+  purchase_finished:
+    category: analytics
+    description: A purchase attempt ended
+    properties:
+      product_id:
+        type: string
+        max_length: 100
+        description: Store product id, e.g. premium
+      result:
+        type: string
+        max_length: 32
+        description: purchased, cancelled, pending, processing, sign_in_required, owned_by_other_account or failed
