@@ -135,3 +135,24 @@ export const purchaseEvents = billingSchema.table(
     index('purchase_events_app_time_idx').on(t.appId, t.occurredAt),
   ],
 );
+
+// Raw store notifications. Pub/Sub delivers at least once: the message id
+// stops duplicates. Processed by a job.
+export const storeNotifications = billingSchema.table(
+  'store_notifications',
+  {
+    id: primaryId(),
+    store: storeEnum('store').notNull(),
+    messageId: text('message_id').notNull(),
+    packageName: text('package_name'),
+    payload: jsonb('payload').notNull(),
+    receivedAt: tz('received_at').notNull().defaultNow(),
+    processedAt: tz('processed_at'),
+    outcome: text('outcome'),
+    error: text('error'),
+  },
+  (t) => [
+    unique('store_notifications_message_key').on(t.store, t.messageId),
+    index('store_notifications_received_idx').on(t.receivedAt),
+  ],
+);

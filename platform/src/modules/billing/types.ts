@@ -39,6 +39,9 @@ export interface StoreProvider {
   fetchPurchase(app: StoreApp, productId: string, purchaseKey: string): Promise<StorePurchase>;
   // Confirms a verified purchase (Google refunds unconfirmed ones after three days)
   acknowledge(app: StoreApp, purchase: StorePurchase): Promise<void>;
+
+  // Purchases refunded or revoked since a moment (a scheduled check next to notifications)
+  listVoided?(app: StoreApp, since: Date): Promise<{ purchaseKey: string; voidedAt: Date }[]>;
 }
 
 export class StoreError extends Error {

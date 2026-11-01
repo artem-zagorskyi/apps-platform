@@ -7,6 +7,8 @@ import { eventsJobs } from './modules/events/jobs.js';
 import { ensureEventPartitions } from './modules/events/partitions.js';
 import { identityJobs } from './modules/identity/jobs.js';
 import { webhooksJobs } from './modules/webhooks/jobs.js';
+import { billingJobs } from './modules/billing/jobs.js';
+import { enableConfiguredStores } from './modules/billing/setup.js';
 
 const app = await buildApp();
 
@@ -14,11 +16,13 @@ if (await openGeoIp(config.GEOIP_DB_PATH)) {
   app.log.info('GeoIP database loaded');
 }
 
+enableConfiguredStores(app.log);
+
 // The current month must exist before the first event arrives;
 // the daily job keeps the next months ready
 await ensureEventPartitions();
 
-await startJobs([...identityJobs, ...eventsJobs, ...webhooksJobs], app.log);
+await startJobs([...identityJobs, ...eventsJobs, ...webhooksJobs, ...billingJobs], app.log);
 
 // Graceful shutdown: let in-flight requests and jobs finish before exiting.
 // Docker sends SIGTERM on stop, Ctrl+C sends SIGINT.

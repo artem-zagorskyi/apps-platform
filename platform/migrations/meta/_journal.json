@@ -85,6 +85,13 @@
       "when": 1793558491828,
       "tag": "0011_add_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793561892291,
+      "tag": "0012_add_store_notifications",
+      "breakpoints": true
     }
   ]
 }

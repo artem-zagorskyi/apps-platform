@@ -9,7 +9,7 @@ import { deliveries, endpoints } from './schema.js';
 
 export const DELIVER_JOB = 'webhooks-deliver';
 
-export type WebhookType = 'user.merged' | 'user.deleted';
+export type WebhookType = 'user.merged' | 'user.deleted' | 'entitlements.changed';
 
 export type DeliveryOutcome = 'delivered' | 'already_delivered' | 'no_endpoint' | 'missing';
 

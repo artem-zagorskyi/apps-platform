@@ -33,6 +33,9 @@ export async function prepareTestEnv(): Promise<{ devUrl: string; testUrl: strin
 
   // A throwaway encryption key for secrets stored in the database
   process.env.DATA_ENCRYPTION_KEY ??= randomBytes(32).toString('base64url');
+  // Pub/Sub push of Play notifications; tests sign the push token themselves
+  process.env.GOOGLE_PUBSUB_AUDIENCE ??= 'https://platform.test/v1/billing/google/notifications';
+  process.env.GOOGLE_PUBSUB_SERVICE_ACCOUNT ??= 'play-notifications@test.iam.gserviceaccount.com';
 
   return { devUrl: devUrl.toString(), testUrl: testUrl.toString() };
 }

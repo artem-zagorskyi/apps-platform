@@ -54,6 +54,14 @@ const envSchema = z.object({
   PLATFORM_TRACKING_PLAN_PATH: z.string().default('../tracking-plan/platform.json'),
   // Optional country database (DB-IP Lite, MMDB); without it country stays empty
   GEOIP_DB_PATH: z.string().min(1).optional(),
+
+  // Google Play billing: a service account key (JSON file) with access to the
+  // Play Console. Without it Play purchases are refused with store_unavailable.
+  GOOGLE_PLAY_SERVICE_ACCOUNT_FILE: z.string().min(1).optional(),
+  // Pub/Sub push subscription of Play notifications: the token audience and
+  // the service account Pub/Sub signs with
+  GOOGLE_PUBSUB_AUDIENCE: z.string().min(1).optional(),
+  GOOGLE_PUBSUB_SERVICE_ACCOUNT: z.email().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;
