@@ -5,6 +5,7 @@ import { AppError } from '../../../core/errors.js';
 import { getIdentityKeys } from '../../apps/service.js';
 import { hashNonce } from '../nonce.js';
 import type { VerifiedIdentity } from './types.js';
+import { subjectProblem } from './subject.js';
 
 // Accounts of the app's own system (email and password, phone, any provider),
 // confirmed by the app backend with a signed assertion.
@@ -54,6 +55,10 @@ export async function verifyExternalAssertion(appId: string, assertion: string):
 
   const claims = claimsSchema.safeParse(payload);
   if (!claims.success) reject('invalid_claims');
+
+  // A placeholder from a bug in the backend would merge everyone into one account
+  const problem = subjectProblem(claims.data.sub);
+  if (problem) reject(`illegal_subject:${problem}`);
 
   return {
     provider: 'external',

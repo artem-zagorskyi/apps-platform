@@ -142,6 +142,35 @@ export function verifyWebhook(
   return JSON.parse(body) as PlatformWebhook;
 }
 
+// Values that are not account ids but a bug in the caller (an unset variable
+// turned into text, a placeholder). The platform refuses them; checking here
+// shows the bug in the backend instead of a failed sign-in on the phone.
+// Keep in sync with platform/src/modules/identity/providers/subject.ts.
+const PLACEHOLDERS = new Set([
+  'anonymous',
+  'guest',
+  'distinctid',
+  'distinct_id',
+  'id',
+  'not_authenticated',
+  'email',
+  'undefined',
+  'null',
+  'none',
+  'nan',
+  'true',
+  'false',
+  '0',
+  '[object object]',
+]);
+
+// Why a subject cannot be an account id, or null if it can
+export function subjectProblem(subject: string): 'blank' | 'placeholder' | null {
+  const bare = subject.trim().replace(/^(['"])(.*)\1$/, '$2').trim();
+  if (bare.length === 0) return 'blank';
+  return PLACEHOLDERS.has(bare.toLowerCase()) ? 'placeholder' : null;
+}
+
 // ---------- Identity assertions ----------
 
 export interface IdentityAssertionOptions {
@@ -162,6 +191,13 @@ export interface IdentityAssertionOptions {
 // Confirms to the platform that a person signed in to the app's own account
 // `subject`. The SDK sends the result to POST /v1/auth/external.
 export async function createIdentityAssertion(options: IdentityAssertionOptions): Promise<string> {
+  const problem = subjectProblem(options.subject);
+  if (problem) {
+    throw new Error(
+      `Refusing to sign in to account "${options.subject}": not an account id (${problem}). ` +
+        'Make sure the account is loaded before calling createIdentityAssertion.',
+    );
+  }
   const jwk: JWK =
     typeof options.privateKey === 'string'
       ? (JSON.parse(Buffer.from(options.privateKey, 'base64url').toString('utf8')) as JWK)

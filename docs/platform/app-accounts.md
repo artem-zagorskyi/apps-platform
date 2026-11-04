@@ -40,7 +40,7 @@ A JWT signed with `EdDSA` or `ES256`:
 | header `kid`, `alg` | The registered key |
 | `iss` | The app id: an assertion works only in its own app |
 | `aud` | The platform (`JWT_ISSUER`, default `apps-platform`) |
-| `sub` | Stable account id in the app's own system, up to 255 characters |
+| `sub` | Stable account id in the app's own system, up to 255 characters; never a placeholder such as `undefined`, `null` or `0` |
 | `nonce` | The nonce the SDK got from the platform, unchanged |
 | `email`, `email_verified` | Optional |
 | `iat`, `exp` | Accepted for at most 10 minutes after `iat` (enough for the merge dialog) |
@@ -73,7 +73,12 @@ the same assertion and a strategy), `409 already_signed_in`,
 
 The platform refuses an assertion with an unknown or revoked key, another
 key with the same `kid`, another app as issuer, another audience, an age
-over 10 minutes, a nonce not issued to this device, or a nonce already used.
+over 10 minutes, a nonce not issued to this device, a nonce already used, or
+a subject that is blank or a placeholder (`undefined`, `null`, `none`,
+`nan`, `0`, `true`, `false`, `[object Object]`, `anonymous`, `guest`, `id`,
+`email` and similar, in any case, also in quotes). A backend bug that sent
+such a value would otherwise put every affected person into one account.
+`createIdentityAssertion` refuses to sign them too.
 
 Account ids are per app: the same `sub` from two apps are two accounts. A
 user links at most one external account.
