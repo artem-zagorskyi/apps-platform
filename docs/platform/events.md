@@ -185,7 +185,9 @@ missing from both stays queued and is sent again.
 3. **Consent.** Analytics events need the user's latest analytics decision
    to be a grant, or the policy mode `none` when the person never decided.
    Otherwise they are rejected with `no_consent`. Unknown events count as
-   analytics.
+   analytics. Refused events are counted per day, reason, platform and app version in
+    `events.rejection_counts`: the SDK does not record analytics without
+    consent, so a rise points at a bug in an app version.
 4. **Deduplication.** Event ids go to `events.event_ids` first; only ids not
    seen before are inserted into `events.events`, in the same transaction.
    A retried batch is accepted again without duplicates.
@@ -256,6 +258,7 @@ Indexes (created on every partition automatically):
 |-------|---------|
 | `events.tracking_plans` | Every uploaded version of an app's plan, with a SHA-256 hash; the latest one applies |
 | `events.event_ids` | Seen event ids for deduplication, with the receive time |
+| `events.rejection_counts` | Events refused on arrival per day, reason, platform and app version; counts only, no user ids |
 
 ## Retention and privacy
 
@@ -287,6 +290,12 @@ select tableoid::regclass as partition, count(*) from events.events group by 1;
 select a.slug, p.created_at, p.plan_hash
 from events.tracking_plans p join apps.apps a on a.id = p.app_id
 order by p.created_at desc;
+
+-- Events refused on arrival, last 14 days
+select day, reason, platform, app_version, count
+from events.rejection_counts
+where day > current_date - 14
+order by day desc, count desc;
 ```
 
 ## Not implemented yet

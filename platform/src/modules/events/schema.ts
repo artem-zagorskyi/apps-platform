@@ -1,6 +1,6 @@
-import { index, jsonb, pgSchema, text, unique, uuid, timestamp } from 'drizzle-orm/pg-core';
+import { date, index, integer, jsonb, pgSchema, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId } from '../../core/columns.js';
-import { apps } from '../apps/schema.js';
+import { apps, platformEnum } from '../apps/schema.js';
 import type { TrackingPlan } from './plan.js';
 
 // All tables of this module live in the "events" Postgres schema
@@ -34,3 +34,27 @@ export const eventIds = eventsSchema.table('event_ids', {
   eventId: uuid('event_id').primaryKey(),
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Events refused on arrival, counted per day. The SDK does not record
+// analytics without consent, so a rise here points at a bug in an app
+// version. Counts only: no user ids. A retried batch is counted again.
+export const rejectionCounts = eventsSchema.table(
+  'rejection_counts',
+  {
+    appId: uuid('app_id')
+      .notNull()
+      .references(() => apps.id),
+    // UTC day of receipt
+    day: date('day', { mode: 'string' }).notNull(),
+    reason: text('reason').notNull(),
+    platform: platformEnum('platform').notNull(),
+    appVersion: text('app_version').notNull(),
+    count: integer('count').notNull(),
+  },
+  (t) => [
+    primaryKey({
+      name: 'rejection_counts_pkey',
+      columns: [t.appId, t.day, t.reason, t.platform, t.appVersion],
+    }),
+  ],
+);

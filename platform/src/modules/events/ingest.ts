@@ -5,7 +5,8 @@ import type { AccessTokenClaims } from '../identity/tokens.js';
 import { events } from './events-table.js';
 import { checkEvent } from './plan.js';
 import { getEffectivePlan } from './plans-service.js';
-import { eventIds } from './schema.js';
+import { eventIds, rejectionCounts } from './schema.js';
+import { sql } from 'drizzle-orm';
 
 export interface IncomingEvent {
   eventId: string;
@@ -44,6 +45,8 @@ export async function ingestEvents(
   const rejected: IngestResult['rejected'] = [];
   const rows: (typeof events.$inferInsert)[] = [];
   const seen = new Set<string>();
+    // reason + app version -> count, for the rejection counters
+  const refused = new Map<string, { reason: string; appVersion: string; count: number }>();
 
   for (const event of batch.events) {
     // The same event twice in one batch is stored once
@@ -56,6 +59,10 @@ export async function ingestEvents(
 
     if (category === 'analytics' && !analyticsAllowed) {
       rejected.push({ eventId: event.eventId, reason: 'no_consent' });
+      const key = `no_consent\u0000${event.appVersion}`;
+      const counter = refused.get(key) ?? { reason: 'no_consent', appVersion: event.appVersion, count: 0 };
+      counter.count += 1;
+      refused.set(key, counter);
       continue;
     }
 
@@ -95,6 +102,32 @@ export async function ingestEvents(
       const newRows = rows.filter((row) => freshIds.has(row.eventId));
       if (newRows.length > 0) await tx.insert(events).values(newRows);
     });
+  }
+
+  if (refused.size > 0) {
+    const day = receivedAt.toISOString().slice(0, 10);
+    await db
+      .insert(rejectionCounts)
+      .values(
+        [...refused.values()].map((r) => ({
+          appId: auth.appId,
+          day,
+          reason: r.reason,
+          platform: auth.platform,
+          appVersion: r.appVersion,
+          count: r.count,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [
+          rejectionCounts.appId,
+          rejectionCounts.day,
+          rejectionCounts.reason,
+          rejectionCounts.platform,
+          rejectionCounts.appVersion,
+        ],
+        set: { count: sql`${rejectionCounts.count} + excluded.count` },
+      });
   }
 
   return {

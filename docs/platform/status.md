@@ -135,6 +135,7 @@ Details: [events.md](events.md).
 | Platform plan read at start-up; app plans uploaded with `pnpm plan:upload` | Done |
 | Compatibility check on upload (plan only grows) | Done |
 | `POST /v1/events`: batches up to 100, dedup by `event_id`, clock correction, consent check | Done |
+| Counts of events refused on arrival (`no_consent`) per day, platform and app version | Done |
 | Monthly partitioned `events.events`, partitions created ahead | Done |
 | Invalid events stored with a flag and logged as a warning | Done |
 | Country from IP | Partial: code done, database file with deployment |
