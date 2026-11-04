@@ -231,6 +231,29 @@ Response `200`:
 - `ETag`: hash of the response. With a matching `If-None-Match` the server
   answers `304` without a body. `Cache-Control: private, no-cache`.
 
+## Explaining a user's config
+
+`pnpm -s config:explain <slug> <user id>` shows what a user gets and why:
+
+- per experiment: the variant with its bucket, or why the user is not in it
+  (draft or stopped, holdout, outside the layer's traffic with the bucket,
+  the targeting conditions that failed); a tester's forced variant; an
+  experiment whose parameters are all forced, which the app never hears of;
+- per parameter: the value and what decided it (force, experiment and
+  variant, rule N counted from 1, server value, built-in default), with the
+  rules skipped before it and why.
+
+The context (platform, app version, country, linked account, creation time)
+comes from the user's last installation; `--platform`, `--app-version` and
+`--country` override it. A merged user is explained as the account they were
+merged into. `--file draft.json` explains a draft as it would be published,
+with the same checks as `config:publish`, without publishing it. `--json`
+prints the raw explanation.
+
+The server's evaluation and the explanation are one function
+(`explainConfig`): `GET /v1/config` sends only the values and experiments
+taken from it, so the two cannot disagree.
+
 ## Exposures
 
 The SDK records `experiment_exposed` (platform event, `analytics`) when the

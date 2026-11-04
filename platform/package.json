@@ -22,7 +22,8 @@
     "webhooks:set": "tsx --env-file=.env scripts/set-webhook.ts",
     "identity:key": "tsx --env-file=.env scripts/identity-key.ts",
     "billing:catalog": "tsx --env-file=.env scripts/upload-catalog.ts",
-    "experiment:results": "tsx --env-file=.env scripts/experiment-results.ts"
+    "experiment:results": "tsx --env-file=.env scripts/experiment-results.ts",
+    "config:explain": "tsx --env-file=.env scripts/config-explain.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",

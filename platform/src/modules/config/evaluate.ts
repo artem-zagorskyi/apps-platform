@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import type { Platform } from '../apps/schema.js';
 import { compareVersions, type ConfigDocument, type Experiment, type RuleCondition } from './document.js';
 
-// Computes one user's config values from the active config document.
-// Pure: no database, no network.
+// Computes one user's config values from the active config document, and
+// why each value is what it is. Pure: no database, no network.
 
 const BUCKETS = 10_000;
 
@@ -35,6 +35,43 @@ export interface EvaluatedConfig {
   experiments: EvaluatedExperiment[];
 }
 
+// Why the user is or is not in an experiment. Buckets are 0..9999 (0.01% each).
+export type ExperimentDecision =
+  | { key: string; outcome: 'not_running'; status: 'draft' | 'stopped' }
+  | { key: string; outcome: 'holdout' }
+  | { key: string; outcome: 'outside_traffic'; bucket: number; from: number; to: number }
+  | { key: string; outcome: 'not_targeted'; problems: string[] }
+  // Weights not adding up to 100; a valid document never gets here
+  | { key: string; outcome: 'no_variant' }
+  // In the experiment. `parameters` lists those it decides; empty means force
+  // overrides all of them and the app does not hear of the experiment.
+  | { key: string; outcome: 'assigned'; variant: string; bucket: number; parameters: string[] }
+  | { key: string; outcome: 'forced'; variant: string; parameters: string[] };
+
+export type ParameterSource =
+  | { kind: 'force' }
+  | { kind: 'experiment'; experiment: string; variant: string }
+  // Position in the parameter's rules, from 0
+  | { kind: 'rule'; index: number }
+  | { kind: 'value' }
+  // Nothing set: the app uses its built-in default
+  | { kind: 'default' };
+
+export interface ParameterDecision {
+  name: string;
+  value: unknown;
+  source: ParameterSource;
+  // Rules tried before the decision, with why each did not match
+  skippedRules: { index: number; problems: string[] }[];
+}
+
+export interface ConfigExplanation {
+  version: number;
+  holdout: { percent: number; bucket: number | null; inHoldout: boolean };
+  experiments: ExperimentDecision[];
+  parameters: ParameterDecision[];
+}
+
 // Stable bucket 0..9999 from the first 4 bytes of SHA-256
 export function bucket(key: string): number {
   return createHash('sha256').update(key).digest().readUInt32BE(0) % BUCKETS;
@@ -50,116 +87,203 @@ type SharedCondition = Pick<
   'platforms' | 'min_app_version' | 'max_app_version' | 'countries' | 'linked'
 >;
 
-function matchesShared(c: SharedCondition, ctx: EvaluationContext): boolean {
-  if (c.platforms && !c.platforms.includes(ctx.platform)) return false;
-  if (c.min_app_version && compareVersions(ctx.appVersion, c.min_app_version) < 0) return false;
-  if (c.max_app_version && compareVersions(ctx.appVersion, c.max_app_version) > 0) return false;
-  if (c.countries && (ctx.country === null || !c.countries.includes(ctx.country))) return false;
-  if (c.linked !== undefined && c.linked !== ctx.linked) return false;
-  return true;
-}
-
-function matchesRule(c: RuleCondition, ctx: EvaluationContext): boolean {
-  return matchesShared(c, ctx) && (!c.user_ids || c.user_ids.includes(ctx.userId));
-}
-
-function matchesTargeting(experiment: Experiment, ctx: EvaluationContext): boolean {
-  const targeting = experiment.targeting;
-  if (!targeting) return true;
-  if (!matchesShared(targeting, ctx)) return false;
-  if (targeting.new_users_only) {
-    if (!experiment.started_at) return false;
-    return ctx.userCreatedAt.getTime() >= new Date(experiment.started_at).getTime();
+// Conditions the user does not meet; empty when all match
+function sharedProblems(c: SharedCondition, ctx: EvaluationContext): string[] {
+  const problems: string[] = [];
+  if (c.platforms && !c.platforms.includes(ctx.platform)) {
+    problems.push(`platform ${ctx.platform} is not ${c.platforms.join(' or ')}`);
   }
-  return true;
+  if (c.min_app_version && compareVersions(ctx.appVersion, c.min_app_version) < 0) {
+    problems.push(`app version ${ctx.appVersion} is below ${c.min_app_version}`);
+  }
+  if (c.max_app_version && compareVersions(ctx.appVersion, c.max_app_version) > 0) {
+    problems.push(`app version ${ctx.appVersion} is above ${c.max_app_version}`);
+  }
+  if (c.countries) {
+    if (ctx.country === null) problems.push('country is unknown');
+    else if (!c.countries.includes(ctx.country)) problems.push(`country ${ctx.country} is not ${c.countries.join(', ')}`);
+  }
+  if (c.linked !== undefined && c.linked !== ctx.linked) {
+    problems.push(c.linked ? 'has no linked account' : 'has a linked account');
+  }
+  return problems;
 }
 
-function inTraffic(experiment: Experiment, userId: string): boolean {
-  const b = bucket(`layer:${experiment.layer}:${userId}`);
-  return b >= toBuckets(experiment.traffic.from) && b < toBuckets(experiment.traffic.to);
+function ruleProblems(c: RuleCondition, ctx: EvaluationContext): string[] {
+  const problems = sharedProblems(c, ctx);
+  if (c.user_ids && !c.user_ids.includes(ctx.userId)) problems.push('user is not in user_ids');
+  return problems;
+}
+
+function targetingProblems(experiment: Experiment, ctx: EvaluationContext): string[] {
+  const targeting = experiment.targeting;
+  if (!targeting) return [];
+  const problems = sharedProblems(targeting, ctx);
+  if (targeting.new_users_only) {
+    if (!experiment.started_at) {
+      problems.push('new users only, and the experiment has no start time');
+    } else if (ctx.userCreatedAt.getTime() < new Date(experiment.started_at).getTime()) {
+      problems.push('new users only: the user was created before the start');
+    }
+  }
+  return problems;
 }
 
 // Variants in alphabetical order, each taking weight% of the buckets
-function pickVariant(key: string, experiment: Experiment, userId: string): string | undefined {
+function pickVariant(
+  key: string,
+  experiment: Experiment,
+  userId: string,
+): { variant: string; bucket: number } | undefined {
   const b = bucket(`experiment:${key}:${userId}`);
   let upTo = 0;
   for (const name of Object.keys(experiment.variants).sort()) {
     upTo += (experiment.variants[name]?.weight ?? 0) * 100;
-    if (b < upTo) return name;
+    if (b < upTo) return { variant: name, bucket: b };
   }
   return undefined;
 }
 
-export function evaluateConfig(
+// Every decision behind the user's config: the experiments, then each parameter
+export function explainConfig(
   active: { number: number; document: ConfigDocument } | null,
   ctx: EvaluationContext,
-): EvaluatedConfig {
-  if (!active) return { version: 0, values: {}, experiments: [] };
+): ConfigExplanation {
+  if (!active) {
+    return { version: 0, holdout: { percent: 0, bucket: null, inHoldout: false }, experiments: [], parameters: [] };
+  }
   const { document } = active;
 
   const holdout = toBuckets(document.holdout.percent);
-  const inHoldout = holdout > 0 && bucket(`holdout:${ctx.appId}:${ctx.userId}`) < holdout;
+  const holdoutBucket = holdout > 0 ? bucket(`holdout:${ctx.appId}:${ctx.userId}`) : null;
+  const inHoldout = holdoutBucket !== null && holdoutBucket < holdout;
 
   // 1. Experiments the user is in, and the values they set
-  const assigned: { key: string; variant: string; forced: boolean }[] = [];
-  const fromExperiment = new Map<string, { experiment: string; value: unknown }>();
+  const experiments: ExperimentDecision[] = [];
+  const fromExperiment = new Map<string, { experiment: string; variant: string; value: unknown }>();
+  const decidedBy = new Map<string, string[]>();
 
   for (const key of Object.keys(document.experiments).sort()) {
     const experiment = document.experiments[key];
-    if (!experiment || experiment.status !== 'running') continue;
+    if (!experiment) continue;
+    if (experiment.status !== 'running') {
+      experiments.push({ key, outcome: 'not_running', status: experiment.status });
+      continue;
+    }
 
     // Testers see their variant always: above holdout, traffic and targeting
     const forcedVariant =
-      experiment.forced && Object.hasOwn(experiment.forced, ctx.userId)
-        ? experiment.forced[ctx.userId]
-        : undefined;
+      experiment.forced && Object.hasOwn(experiment.forced, ctx.userId) ? experiment.forced[ctx.userId] : undefined;
 
     let variant: string | undefined;
-    let forced = false;
     if (forcedVariant !== undefined && Object.hasOwn(experiment.variants, forcedVariant)) {
       variant = forcedVariant;
-      forced = true;
-    } else if (!inHoldout && inTraffic(experiment, ctx.userId) && matchesTargeting(experiment, ctx)) {
-      variant = pickVariant(key, experiment, ctx.userId);
+      experiments.push({ key, outcome: 'forced', variant, parameters: [] });
+    } else if (inHoldout) {
+      experiments.push({ key, outcome: 'holdout' });
+    } else {
+      const layerBucket = bucket(`layer:${experiment.layer}:${ctx.userId}`);
+      const problems = targetingProblems(experiment, ctx);
+      if (layerBucket < toBuckets(experiment.traffic.from) || layerBucket >= toBuckets(experiment.traffic.to)) {
+        experiments.push({
+          key,
+          outcome: 'outside_traffic',
+          bucket: layerBucket,
+          from: experiment.traffic.from,
+          to: experiment.traffic.to,
+        });
+      } else if (problems.length > 0) {
+        experiments.push({ key, outcome: 'not_targeted', problems });
+      } else {
+        const picked = pickVariant(key, experiment, ctx.userId);
+        if (picked) {
+          variant = picked.variant;
+          experiments.push({ key, outcome: 'assigned', variant, bucket: picked.bucket, parameters: [] });
+        } else {
+          experiments.push({ key, outcome: 'no_variant' });
+        }
+      }
     }
     if (variant === undefined) continue;
 
-    assigned.push({ key, variant, forced });
+    decidedBy.set(key, []);
     for (const [name, value] of Object.entries(experiment.variants[variant]?.values ?? {})) {
-      fromExperiment.set(name, { experiment: key, value });
+      fromExperiment.set(name, { experiment: key, variant, value });
     }
   }
 
   // 2. Every parameter: force, then experiment, then the first matching rule, then value
-  const values: Record<string, unknown> = {};
-  const decidedBy = new Map<string, string[]>();
+  const parameters: ParameterDecision[] = [];
   const names = new Set([...Object.keys(document.parameters), ...fromExperiment.keys()]);
 
   for (const name of [...names].sort()) {
     const parameter = Object.hasOwn(document.parameters, name) ? document.parameters[name] : undefined;
     const experimentValue = fromExperiment.get(name);
-    let value: unknown;
+    const skippedRules: ParameterDecision['skippedRules'] = [];
 
     if (parameter?.force !== undefined) {
-      value = parameter.force;
-    } else if (experimentValue) {
-      value = experimentValue.value;
-      decidedBy.set(experimentValue.experiment, [...(decidedBy.get(experimentValue.experiment) ?? []), name]);
-    } else {
-      const rule = parameter?.rules?.find((r) => matchesRule(r.when, ctx));
-      value = rule ? rule.value : parameter?.value;
+      parameters.push({ name, value: parameter.force, source: { kind: 'force' }, skippedRules });
+      continue;
+    }
+    if (experimentValue) {
+      decidedBy.get(experimentValue.experiment)?.push(name);
+      parameters.push({
+        name,
+        value: experimentValue.value,
+        source: { kind: 'experiment', experiment: experimentValue.experiment, variant: experimentValue.variant },
+        skippedRules,
+      });
+      continue;
     }
 
-    // Nothing set: the app uses its built-in default
-    if (value !== undefined) values[name] = value;
+    let decision: ParameterDecision | undefined;
+    for (const [index, rule] of (parameter?.rules ?? []).entries()) {
+      const problems = ruleProblems(rule.when, ctx);
+      if (problems.length === 0) {
+        decision = { name, value: rule.value, source: { kind: 'rule', index }, skippedRules };
+        break;
+      }
+      skippedRules.push({ index, problems });
+    }
+    decision ??=
+      parameter?.value !== undefined
+        ? { name, value: parameter.value, source: { kind: 'value' }, skippedRules }
+        : { name, value: undefined, source: { kind: 'default' }, skippedRules };
+    parameters.push(decision);
   }
 
-  // 3. An experiment whose parameters are all forced changes nothing for the user
-  const experiments = assigned.flatMap(({ key, variant, forced }): EvaluatedExperiment[] => {
-    const parameters = decidedBy.get(key);
-    if (!parameters) return [];
-    return [{ key, variant, parameters, ...(forced ? { forced: true as const } : {}) }];
+  // 3. The parameters each experiment decides; none means force overrides it
+  for (const decision of experiments) {
+    if (decision.outcome === 'assigned' || decision.outcome === 'forced') {
+      decision.parameters = decidedBy.get(decision.key) ?? [];
+    }
+  }
+
+  return {
+    version: active.number,
+    holdout: { percent: document.holdout.percent, bucket: holdoutBucket, inHoldout },
+    experiments,
+    parameters,
+  };
+}
+
+// What the phone receives: values and the experiments that decide them
+export function evaluateConfig(
+  active: { number: number; document: ConfigDocument } | null,
+  ctx: EvaluationContext,
+): EvaluatedConfig {
+  const explanation = explainConfig(active, ctx);
+
+  const values: Record<string, unknown> = {};
+  for (const p of explanation.parameters) {
+    // Nothing set: the app uses its built-in default
+    if (p.value !== undefined) values[p.name] = p.value;
+  }
+
+  const experiments = explanation.experiments.flatMap((d): EvaluatedExperiment[] => {
+    if ((d.outcome !== 'assigned' && d.outcome !== 'forced') || d.parameters.length === 0) return [];
+    return [{ key: d.key, variant: d.variant, parameters: d.parameters, ...(d.outcome === 'forced' ? { forced: true as const } : {}) }];
   });
 
-  return { version: active.number, values, experiments };
+  return { version: explanation.version, values, experiments };
 }

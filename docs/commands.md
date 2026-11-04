@@ -83,6 +83,7 @@ In psql: `\dn` schemas, `\dt identity.*` tables, `\d <table>` columns,
 | Upload an app's parameter declarations | `pnpm config:schema <app slug> <path to remote_config.json>` |
 | Publish a config version | `pnpm config:publish <app slug> <path to config.json> [comment]` |
 | Print a config version | `pnpm -s config:show <app slug> [version]` |
+| Why a user gets their config values | `pnpm -s config:explain <app slug> <user id> [--file draft.json]` |
 | Results of an experiment | `pnpm -s experiment:results <app slug> <key> [--control <variant>] [--json]` |
 | Upload an app's product catalog | `pnpm billing:catalog <app slug> <path to catalog.json>` |
 

@@ -186,6 +186,7 @@ Details: [config.md](config.md).
 | Numbered versions, rollback by republishing, `pnpm config:publish` / `config:show` | Done |
 | Evaluation: SHA-256 buckets, holdout, layers, targeting, forced testers | Done |
 | `GET /v1/config` with ETag and 304; active version cached for a minute | Done |
+| Explanation per user, also for a draft: experiment and bucket, rule, force, why not; `pnpm config:explain` | Done |
 | `experiment_exposed` platform event | Done |
 | Editing, publishing and the holdout setting in the admin panel | Planned: with the admin |
 | Results per experiment: merged users resolved, quarantine, conversion lift with interval and chance to win, SRM; `pnpm experiment:results` | Done |
