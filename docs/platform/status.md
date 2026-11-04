@@ -19,7 +19,7 @@ for a live check)
 | 4. Remote config & A/B tests | Done | Done | Planned |
 | 5. Subscriptions | Skeleton | Skeleton | Planned |
 | 6. Attribution | Planned | Planned | — |
-| 7. Push notifications | Planned | Planned | Planned |
+| 7. Push notifications | Designed, deferred | Designed, deferred | Planned |
 | 8. Dashboards & alerts | Planned | — | Planned |
 | 9. Protection & engagement | Planned | Planned | — |
 | Deployment | Planned | — | — |
@@ -85,6 +85,8 @@ Details: [identity.md](identity.md).
 | Cleanup of old nonces and ended sessions | Done |
 | Trusted proxy for rate limits behind Caddy | Planned: with deployment |
 | Admin: register apps, platforms, OAuth clients | Planned (script for now: `pnpm db:seed`) |
+| Activity days for all users (DAU, retention without analytics consent) | Planned: after legal review |
+| Activity feed per user for support: sign-ins, links, consents, merges, purchases | Planned: with the admin |
 
 ### Flutter SDK
 
@@ -194,6 +196,8 @@ Details: [config.md](config.md).
 | Results in the admin panel; other metrics; CUPED, sequential tests | Planned |
 | Rules on device details and on the app build | Planned |
 | Bandits and personalization | Planned |
+| Warnings: experiments running over 40 days, `force` set over 7 days | Planned: with the admin |
+| Keeping the variant across a merge (if the quarantine grows large) | Planned |
 
 ### Flutter SDK
 
@@ -232,6 +236,7 @@ live check needs a Play Console account ([going live](billing.md#going-live)).
 | Acknowledgement, transfer on merge, anonymization on account deletion | Done |
 | `entitlements.changed` webhook | Done |
 | Google Play provider: Play Developer API, Pub/Sub notifications, refund reconciliation, overdue checks | Skeleton: needs a Play Console account |
+| Purchase details: base plan and period, offer, price phase (trial), order id ([planned](billing.md#planned)) | Planned: with the Play Console account |
 | App Store provider (StoreKit, server notifications) | Deferred: needs an Apple Developer account |
 | One-time products | Planned |
 | Revenue in the dashboards | Planned: with the dashboards |
@@ -263,7 +268,7 @@ Decisions:
 |------|--------|
 | Offline-first sync: optional toolkit for app backends ([design](../sync/design.md)) | Designed; built with the first app that needs offline data |
 | Install Referrer, server-side conversions to ad networks | Planned |
-| FCM tokens, templates, scheduler, weekly budget, delivery logs | Planned |
+| Push notifications: FCM, campaigns, limits, decision log ([design](../push/design.md)) | Designed; built with the first app that needs them |
 | Cohort retention, funnels, user states, Telegram alerts | Planned |
 | Play Integrity on purchases and rewards | Planned |
 | Streaks, in-app review, ad frequency rules | Planned |

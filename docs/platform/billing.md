@@ -186,3 +186,17 @@ What to do once a Play Console account exists. Nothing here needs code.
    anonymous user (transferred); reinstall after the owner linked Google
    (sign-in required).
 8. **Before launch:** legal review of keeping anonymized purchase records.
+
+## Planned
+
+- **Purchase details** (with the Play Console account): base plan and offer
+  (`lineItems[].offerDetails`), the current price phase — free trial,
+  introductory price, base price (`offerPhase`) — and the latest order id
+  `GPA.…` (`latestSuccessfulOrderId`), all from `subscriptionsv2`. The
+  catalog gets base plans with their billing period (`monthly: P1M`,
+  `yearly: P1Y`): the period is not in the purchase. Needed for MRR, trial
+  conversion and finding a purchase by order id in support.
+- **App Store provider** (StoreKit 2, App Store Server API and
+  notifications) with an Apple Developer account.
+- One-time products (lifetime unlocks).
+- Purchases as experiment metrics (conversion to a paid plan, revenue).
