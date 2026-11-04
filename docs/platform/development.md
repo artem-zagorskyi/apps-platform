@@ -118,6 +118,7 @@ All run from `platform/`.
 | `pnpm config:schema <slug> <file>` | Upload an app's parameter declarations (see [config.md](config.md)) |
 | `pnpm config:publish <slug> <file> [comment]` | Publish a config document as a new version |
 | `pnpm -s config:show <slug> [version]` | Print a config version as JSON |
+| `pnpm -s experiment:results <slug> <key>` | Print the results of an experiment (see [config.md](config.md#results)) |
 | `pnpm billing:catalog <slug> <file>` | Upload an app's product catalog (see [billing.md](billing.md#catalog)) |
 | `pnpm keys:generate` | Print a new `JWT_SIGNING_KEYS` line |
 | `pnpm keys:data` | Print a new `DATA_ENCRYPTION_KEY` line |

@@ -79,6 +79,7 @@ platform/
       config/          remote config and experiments
       webhooks/        notifications to app backends
       billing/         catalog, purchases, store providers
+      reports/         read-only reports across modules (experiment results)
     app.ts             builds the Fastify instance (used by tests)
     server.ts          starts it, owns process lifecycle and the DB pool
   migrations/          generated SQL migrations, committed
@@ -90,6 +91,10 @@ Rules:
 
 - A module owns its tables. Other modules call its service functions and never
   query its tables directly. Importing its enums and types is allowed.
+- One exception: `reports` reads the tables of other modules in single SQL
+  queries, because analysis joins events, users and config at a scale where
+  calling services per user is too slow. It never writes, and no other
+  module calls into its queries.
 - Each module exposes its routes as a Fastify plugin registered in `app.ts`.
 - `app.ts` only builds the app. `server.ts` starts it, handles SIGINT/SIGTERM
   with graceful shutdown and closes the database pool.

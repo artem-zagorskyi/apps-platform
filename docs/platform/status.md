@@ -188,7 +188,8 @@ Details: [config.md](config.md).
 | `GET /v1/config` with ETag and 304; active version cached for a minute | Done |
 | `experiment_exposed` platform event | Done |
 | Editing, publishing and the holdout setting in the admin panel | Planned: with the admin |
-| Results per experiment, significance | Planned: with the dashboards |
+| Results per experiment: merged users resolved, quarantine, conversion lift with interval and chance to win, SRM; `pnpm experiment:results` | Done |
+| Results in the admin panel; other metrics; CUPED, sequential tests | Planned |
 | Rules on device details and on the app build | Planned |
 | Bandits and personalization | Planned |
 

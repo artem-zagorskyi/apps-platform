@@ -249,8 +249,33 @@ app reads a parameter decided by an experiment:
   records it.
 
 Results are computed from exposures, not assignments: only users who
-actually saw a variant count. Analysis (conversion per variant after the
-first exposure, significance) comes with the dashboards.
+actually saw a variant count.
+
+## Results
+
+`pnpm -s experiment:results <slug> <key> [--control <variant>] [--json]`
+prints the results of an experiment of the active config (the admin panel
+will show the same).
+
+- **Window:** from `started_at` to `stopped_at`, or now while running.
+- **People, not user ids:** user ids are resolved to the account they were
+  merged into, so an anonymous history and the account are one person.
+- **Quarantine:** people who saw more than one variant (usually after signing
+  into an account with another variant) are left out and counted separately.
+- **Metric:** conversion, the share of exposed people with a `primary_metric`
+  event at or after their first exposure. Pick an event that only happens on
+  success: `purchase_finished` is recorded for cancelled attempts too.
+- **Comparison:** each variant against `control` (or the first variant in
+  alphabetical order): relative lift with a 95% interval (delta method) and
+  the chance that the variant is better.
+- **Health:** sample ratio mismatch, a chi-squared test of exposed people
+  against the weights; below p = 0.001 the results are not to be trusted.
+  With fewer than 8 people in any variant there is no verdict and no
+  comparison.
+- Only people with analytics consent are counted: exposures are analytics
+  events.
+
+Code: `platform/src/modules/reports/`.
 
 ## Storage
 
@@ -280,7 +305,10 @@ from events.events where name = 'experiment_exposed' group by 1, 2 order by 1, 2
 
 ## Not implemented yet
 
-- Results per experiment and significance tests (with the dashboards)
+- Results in the admin panel
+- Metrics other than conversion (counts, sums, revenue from purchases) and
+  conditions on event properties
+- CUPED and sequential tests; keeping the variant across a merge
 - Editing and publishing from the admin panel, with instant cache reset
 - Rules on device details (with analytics consent and the installation update)
 - Rules on the app build number
