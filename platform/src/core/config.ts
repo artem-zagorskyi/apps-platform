@@ -62,6 +62,14 @@ const envSchema = z.object({
   // the service account Pub/Sub signs with
   GOOGLE_PUBSUB_AUDIENCE: z.string().min(1).optional(),
   GOOGLE_PUBSUB_SERVICE_ACCOUNT: z.email().optional(),
+  // Internal admin API. Never routed through Caddy: only the admin container
+  // reaches it. In Docker, set ADMIN_HOST to the platform's address on the
+  // private admin network so app backends cannot connect at all.
+  ADMIN_HOST: z.string().default('127.0.0.1'),
+  ADMIN_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+}).refine((env) => env.ADMIN_PORT !== env.PORT, {
+  message: 'must differ from PORT',
+  path: ['ADMIN_PORT'],
 });
 
 export type Config = z.infer<typeof envSchema>;
