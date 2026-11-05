@@ -23,7 +23,8 @@
     "identity:key": "tsx --env-file=.env scripts/identity-key.ts",
     "billing:catalog": "tsx --env-file=.env scripts/upload-catalog.ts",
     "experiment:results": "tsx --env-file=.env scripts/experiment-results.ts",
-    "config:explain": "tsx --env-file=.env scripts/config-explain.ts"
+    "config:explain": "tsx --env-file=.env scripts/config-explain.ts",
+    "admin:create": "tsx --env-file=.env scripts/create-admin.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
@@ -41,8 +42,10 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
     "drizzle-kit": "^0.31.11",
     "pino-pretty": "^13.2.0",
+    "qrcode": "^1.5.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

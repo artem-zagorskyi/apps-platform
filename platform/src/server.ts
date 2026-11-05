@@ -9,8 +9,10 @@ import { identityJobs } from './modules/identity/jobs.js';
 import { webhooksJobs } from './modules/webhooks/jobs.js';
 import { billingJobs } from './modules/billing/jobs.js';
 import { enableConfiguredStores } from './modules/billing/setup.js';
+import { buildAdminApp } from './admin-app.js';
 
 const app = await buildApp();
+const adminApp = await buildAdminApp();
 
 if (await openGeoIp(config.GEOIP_DB_PATH)) {
   app.log.info('GeoIP database loaded');
@@ -30,7 +32,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {
     app.log.info({ signal }, 'shutting down');
     // No new requests, so no new jobs from them
-    await app.close();
+    await Promise.all([app.close(), adminApp.close()]);
     await stopJobs();
     // The app does not own the database pool, so it is closed here
     await pool.end();
@@ -40,6 +42,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
+  // Internal only: not routed by Caddy, see ADMIN_HOST in core/config
+  await adminApp.listen({ host: config.ADMIN_HOST, port: config.ADMIN_PORT });
 } catch (err) {
   app.log.error(err);
   await stopJobs();

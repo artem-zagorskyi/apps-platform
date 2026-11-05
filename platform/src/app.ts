@@ -1,75 +1,19 @@
-import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyError } from 'fastify';
-import {
-  serializerCompiler,
-  validatorCompiler,
-} from 'fastify-type-provider-zod';
-import { config } from './core/config.js';
+import { createServer, type ServerOptions } from './core/http.js';
 import { isDatabaseReachable } from './core/db.js';
-import { AppError } from './core/errors.js';
-import { serializeRequest } from './core/logging.js';
 import { identityRoutes } from './modules/identity/routes.js';
 import { consentRoutes } from './modules/identity/consent-routes.js';
-
 import { eventsRoutes } from './modules/events/routes.js';
 import { getPlatformPlan } from './modules/events/plans-service.js';
 import { configRoutes } from './modules/config/routes.js';
 import { billingRoutes } from './modules/billing/routes.js';
 
-export interface BuildAppOptions {
-  // Tests only: receive log lines at info level instead of the configured output
-  logStream?: { write(line: string): void };
-}
+export type BuildAppOptions = Pick<ServerOptions, 'logStream'>;
 
-// Builds the Fastify instance with all plugins and routes.
+// Builds the public Fastify instance with all plugins and routes.
 // Kept separate from server.ts so tests can build an app
 // and send requests to it without opening a real port.
 export async function buildApp(options: BuildAppOptions = {}) {
-  const app = Fastify({
-    logger: {
-      level: options.logStream ? 'info' : config.LOG_LEVEL,
-      serializers: { req: serializeRequest },
-      ...(options.logStream
-        ? { stream: options.logStream }
-        : // Human-readable logs in development, raw JSON everywhere else
-          config.NODE_ENV === 'development' && {
-            transport: { target: 'pino-pretty' },
-          }),
-    },
-  });
-
-  // Route schemas are written in zod
-  app.setValidatorCompiler(validatorCompiler);
-  app.setSerializerCompiler(serializerCompiler);
-
-  // Rate limits are opt-in per route via `config.rateLimit`
-  await app.register(rateLimit, { global: false });
-
-  // One response format for every error: { error, message }
-  app.setErrorHandler((error: FastifyError, request, reply) => {
-    if (error instanceof AppError) {
-      if (error.internalReason) {
-        request.log.warn({ code: error.code, reason: error.internalReason }, 'request rejected');
-      }
-      return reply.code(error.statusCode).send({ error: error.code, message: error.message });
-    }
-
-    // Request body or params did not match the route schema
-    if (error.validation) {
-      return reply.code(400).send({ error: 'validation_failed', message: error.message });
-    }
-
-    // Other client errors raised by Fastify or plugins (e.g. 429 from rate limit)
-    if (error.statusCode && error.statusCode < 500) {
-      return reply
-        .code(error.statusCode)
-        .send({ error: error.code ?? 'request_error', message: error.message });
-    }
-
-    // Unexpected: log the details, never send them to the client
-    request.log.error(error);
-    return reply.code(500).send({ error: 'internal_error', message: 'Internal server error' });
-  });
+  const app = await createServer(options);
 
   // Health check: the process is alive and the database answers.
   // Responds 503 if the database is unreachable.
@@ -91,7 +35,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   // Feature modules
   await app.register(identityRoutes);
-  
   await app.register(consentRoutes);
   await app.register(eventsRoutes);
   await app.register(configRoutes);
