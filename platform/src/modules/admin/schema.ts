@@ -107,7 +107,9 @@ export const auditLog = adminSchema.table(
     id: primaryId(),
     adminId: uuid('admin_id').references(() => admins.id), // null: a script on the server
     action: text('action').notNull(), // e.g. auth.login, app.update, user.view
-    appId: uuid('app_id').references(() => apps.id),
+    // No foreign key on purpose: the log is history and must not be blocked
+    // or emptied by anything that happens to apps later (e.g. TRUNCATE ... CASCADE)
+    appId: uuid('app_id'),
     targetType: text('target_type'), // e.g. user, app, webhook
     targetId: text('target_id'),
     reason: text('reason'),

@@ -113,6 +113,13 @@
       "when": 1793913967227,
       "tag": "0015_admin_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793993282028,
+      "tag": "0016_admin_audit_log_without_app_fk",
+      "breakpoints": true
     }
   ]
 }
