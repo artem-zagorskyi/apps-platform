@@ -1,0 +1,1 @@
+ALTER TABLE "apps"."apps" ADD CONSTRAINT "apps_slug_not_all" CHECK (slug <> 'all');

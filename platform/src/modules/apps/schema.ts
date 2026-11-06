@@ -7,9 +7,11 @@ import {
   unique,
   uuid,
   jsonb,
+  check,
 } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId, tz } from '../../core/columns.js';
 import type { JWK } from 'jose';
+import {sql} from 'drizzle-orm';
 
 // All tables of this module live in the "apps" Postgres schema
 export const appsSchema = pgSchema('apps');
@@ -25,13 +27,18 @@ export const consentModeEnum = appsSchema.enum('consent_mode', [
 ]);
 
 // A product. One app has one id across both platforms.
-export const apps = appsSchema.table('apps', {
-  id: primaryId(),
-  slug: text('slug').notNull().unique(),
-  name: text('name').notNull(),
-  status: appStatusEnum('status').notNull().default('active'),
-  createdAt: createdAt(),
-});
+export const apps = appsSchema.table(
+  'apps',
+  {
+    id: primaryId(),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    status: appStatusEnum('status').notNull().default('active'),
+    createdAt: createdAt(),
+  },
+  // "all" stands for every app in admin panel URLs (/apps/all/...)
+  () => [check('apps_slug_not_all', sql`slug <> 'all'`)],
+);
 
 // Per-platform identity of an app: package name on Android, bundle ID on iOS
 export const appPlatforms = appsSchema.table(

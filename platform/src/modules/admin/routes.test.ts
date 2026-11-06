@@ -6,9 +6,10 @@ import { buildAdminApp } from '../../admin-app.js';
 import { buildApp } from '../../app.js';
 import { decryptSecret } from '../../core/crypto.js';
 import { db, pool } from '../../core/db.js';
-import { admins, auditLog, sessions } from './schema.js';
+import { admins, auditLog, sessions, roleGrants } from './schema.js';
 import { createOwner } from './service.js';
 import { hotp } from './totp.js';
+import {apps} from '../apps/schema.js';
 
 const PASSWORD = 'correct horse battery';
 const MINUTE = 60_000;
@@ -323,5 +324,43 @@ describe('admin audit log', () => {
     expect(updateError).toContain('append-only');
     expect(deleteError).toContain('append-only');
     expect(await auditActions(admin.id)).toEqual(['auth.login']);
+  });
+});
+
+describe('admin apps', () => {
+  it('lists every app for a role without an app, only granted apps otherwise', async () => {
+    const [first, second] = await db
+      .insert(apps)
+      .values([
+        { slug: `alpha-${randomUUID()}`, name: 'Alpha' },
+        { slug: `beta-${randomUUID()}`, name: 'Beta' },
+      ])
+      .returning({ id: apps.id, slug: apps.slug });
+
+    const owner = await createTestAdmin();
+    const ownerApps = (await authed('GET', '/apps', await signIn(owner))).json().apps;
+    expect(ownerApps.map((app: { slug: string }) => app.slug)).toEqual(
+      expect.arrayContaining([first!.slug, second!.slug]),
+    );
+
+    const scoped = await createTestAdmin();
+    await db
+      .update(roleGrants)
+      .set({ role: 'support', appId: first!.id })
+      .where(eq(roleGrants.adminId, scoped.id));
+    const scopedApps = (await authed('GET', '/apps', await signIn(scoped))).json().apps;
+    expect(scopedApps.map((app: { slug: string }) => app.slug)).toEqual([first!.slug]);
+  });
+
+  it('reserves the slug "all" for the panel', async () => {
+    const error = await db
+      .insert(apps)
+      .values({ slug: 'all', name: 'All' })
+      .then(
+        () => null,
+        (err: { cause?: { constraint?: string } }) => err.cause?.constraint,
+      );
+
+    expect(error).toBe('apps_slug_not_all');
   });
 });

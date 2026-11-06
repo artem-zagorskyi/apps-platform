@@ -120,6 +120,13 @@
       "when": 1793993282028,
       "tag": "0016_admin_audit_log_without_app_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793995724626,
+      "tag": "0017_apps_reserved_slug",
+      "breakpoints": true
     }
   ]
 }
