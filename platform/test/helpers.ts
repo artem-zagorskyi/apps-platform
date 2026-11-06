@@ -5,8 +5,9 @@ import { db } from '../src/core/db.js';
 import { appPlatforms, apps, consentPolicies } from '../src/modules/apps/schema.js';
 import { authIdentities } from '../src/modules/identity/schema.js';
 
-// Removes all rows. Every table references apps.apps directly or
-// indirectly, so truncating it with CASCADE empties the whole database.
+// Every app table references apps.apps directly or indirectly, so truncating
+// it with CASCADE empties them all. Admin accounts, sessions and the audit log
+// do not hang off apps and stay; admin tests create their own admin each time.
 export async function resetDatabase(): Promise<void> {
   await db.execute(sql`truncate table apps.apps cascade`);
 }
