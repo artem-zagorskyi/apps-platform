@@ -152,7 +152,8 @@ describe('app platforms', () => {
     const token = await signIn(await createTestAdmin());
     const first = await createApp(token);
     const second = await createApp(token);
-    const bundleId = `com.example.${first.slug.replaceAll('-', '_')}`;
+    // Without dashes or underscores: valid as an Android package and an iOS bundle ID
+    const bundleId = `com.example.${first.slug.replaceAll('-', '')}`;
 
     for (const malformed of ['example', 'com..example', '1com.example', 'com.exa mple']) {
       const res = await authed('PUT', `/apps/${first.slug}/platforms/android`, token, { bundleId: malformed });
