@@ -2,6 +2,12 @@ import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AppError } from '../../core/errors.js';
 import { authenticate, type AdminSession, type ClientInfo } from './service.js';
+import type { Actor } from './audit.js';
+
+// The admin and browser IP of the current request, for the audit log
+export function actorOf(request: FastifyRequest): Actor {
+  return { adminId: adminOf(request).adminId, ip: clientOf(request).ip };
+}
 
 declare module 'fastify' {
   interface FastifyRequest {

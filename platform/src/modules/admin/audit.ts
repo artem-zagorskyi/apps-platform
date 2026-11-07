@@ -19,3 +19,9 @@ export interface AuditEntry {
 export async function writeAudit(entry: AuditEntry, executor: typeof db | Tx = db): Promise<void> {
   await executor.insert(auditLog).values(entry);
 }
+
+// Who performs an admin action, as recorded in the audit log
+export interface Actor {
+  adminId: string;
+  ip: string | null;
+}

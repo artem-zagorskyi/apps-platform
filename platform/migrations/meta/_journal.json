@@ -127,6 +127,13 @@
       "when": 1793995724626,
       "tag": "0017_apps_reserved_slug",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794042144431,
+      "tag": "0018_app_platforms_unique_bundle",
+      "breakpoints": true
     }
   ]
 }

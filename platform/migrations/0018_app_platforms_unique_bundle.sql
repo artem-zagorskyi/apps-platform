@@ -1,0 +1,1 @@
+ALTER TABLE "apps"."app_platforms" ADD CONSTRAINT "app_platforms_platform_bundle_key" UNIQUE("platform","bundle_id");

@@ -51,7 +51,12 @@ export const appPlatforms = appsSchema.table(
     bundleId: text('bundle_id').notNull(),
     createdAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.appId, t.platform] })],
+  (t) => [
+    primaryKey({ columns: [t.appId, t.platform] }),
+    // One package name / bundle ID belongs to one app: store notifications
+    // and sign-in tokens are matched to the app through it
+    unique('app_platforms_platform_bundle_key').on(t.platform, t.bundleId),
+  ],
 );
 
 // Client IDs accepted in Google / Apple sign-in tokens for an app platform

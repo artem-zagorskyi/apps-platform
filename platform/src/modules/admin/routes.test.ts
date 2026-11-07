@@ -4,18 +4,17 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildAdminApp } from '../../admin-app.js';
 import { buildApp } from '../../app.js';
-import { decryptSecret } from '../../core/crypto.js';
 import { db, pool } from '../../core/db.js';
 import { admins, auditLog, sessions, roleGrants } from './schema.js';
 import { createOwner } from './service.js';
-import { hotp } from './totp.js';
 import {apps} from '../apps/schema.js';
+import { CLIENT_IP, PASSWORD, adminRequests, createTestAdmin, totp, type TestAdmin } from '../../../test/admin.js';
 
-const PASSWORD = 'correct horse battery';
 const MINUTE = 60_000;
-const CLIENT_IP = '198.51.100.7';
 
 let server: FastifyInstance;
+
+const { login, signIn, authed } = adminRequests(() => server);
 
 beforeEach(async () => {
   // Only Date is faked: TOTP codes and session times become predictable,
@@ -32,56 +31,6 @@ afterEach(async () => {
 afterAll(async () => {
   await pool.end();
 });
-
-interface TestAdmin {
-  id: string;
-  email: string;
-  secret: Buffer;
-  recoveryCodes: string[];
-}
-
-// Every test gets its own admin, so tests never see each other's data
-async function createTestAdmin(): Promise<TestAdmin> {
-  const email = `admin-${randomUUID()}@example.test`;
-  const result = await createOwner(email, PASSWORD);
-  if (!result.ok) throw new Error(`createOwner failed: ${result.reason}`);
-
-  const [row] = await db
-    .select({ totpSecret: admins.totpSecret })
-    .from(admins)
-    .where(eq(admins.id, result.adminId));
-
-  return {
-    id: result.adminId,
-    email,
-    secret: Buffer.from(decryptSecret(row!.totpSecret), 'base64url'),
-    recoveryCodes: result.recoveryCodes,
-  };
-}
-
-// The code the authenticator app shows now, shifted by whole 30-second steps
-function totp(admin: TestAdmin, stepOffset = 0): string {
-  return hotp(admin.secret, Math.floor(Date.now() / 30_000) + stepOffset);
-}
-
-function login(body: { email: string; password: string; code: string }, ip = CLIENT_IP) {
-  return server.inject({
-    method: 'POST',
-    url: '/admin/v1/auth/login',
-    payload: body,
-    headers: { 'x-client-ip': ip, 'x-client-user-agent': 'vitest' },
-  });
-}
-
-async function signIn(admin: TestAdmin, stepOffset = 0): Promise<string> {
-  const res = await login({ email: admin.email, password: PASSWORD, code: totp(admin, stepOffset) });
-  expect(res.statusCode).toBe(200);
-  return res.json().token;
-}
-
-function authed(method: 'GET' | 'POST', url: string, token: string) {
-  return server.inject({ method, url: `/admin/v1${url}`, headers: { authorization: `Bearer ${token}` } });
-}
 
 function advance(ms: number) {
   vi.setSystemTime(Date.now() + ms);
