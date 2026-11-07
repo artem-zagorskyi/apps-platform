@@ -33,7 +33,7 @@ function NavLink({ href, icon: Icon, label, active, disabled, hint }) {
   );
 }
 
-export function Sidebar({ apps, email }) {
+export function Sidebar({ apps, email, canCreateApps }) {
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -66,6 +66,11 @@ export function Sidebar({ apps, email }) {
             </NativeSelectOption>
           ))}
         </NativeSelect>
+        {canCreateApps && (
+          <Link href="/new-app" className="px-1 text-sm text-muted-foreground hover:text-foreground">
+            + New app
+          </Link>
+        )}
       </div>
 
       <nav className="grid flex-1 content-start gap-5" aria-label="Sections">

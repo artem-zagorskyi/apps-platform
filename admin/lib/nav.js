@@ -55,3 +55,15 @@ export function findSection(section) {
 export function appSectionHref(app, section) {
   return `/apps/${app}/${section}`;
 }
+
+// Tabs of App settings: /apps/<slug>/settings/<tab>
+export const SETTINGS_TABS = [
+  { tab: 'general', label: 'General' },
+  { tab: 'platforms', label: 'Platforms' },
+  { tab: 'sign-in', label: 'Sign-in' },
+  { tab: 'consents', label: 'Consents' },
+  { tab: 'events', label: 'Events' },
+  { tab: 'config', label: 'Config' },
+  { tab: 'subscriptions', label: 'Subscriptions' },
+  { tab: 'webhooks', label: 'Webhooks' },
+];
