@@ -10,6 +10,11 @@ import {
   listVisibleApps,
   setPlatform,
   updateApp,
+  addOAuthClient,
+  createBackendKey,
+  getSignInSettings,
+  removeOAuthClient,
+  revokeBackendKey
 } from './apps-service.js';
 import { actorOf, adminOf, requireAdmin } from './guard.js';
 import { SETTINGS_EDITORS, SETTINGS_READERS, hasGlobalRole } from './roles.js';
@@ -79,6 +84,62 @@ export async function adminAppsRoutes(server: FastifyInstance) {
       return {
         platform: await setPlatform(actorOf(request), found, request.params.platform, request.body.bundleId),
       };
+    },
+  );
+
+    app.get('/apps/:slug/sign-in', { schema: { params: slugParams } }, async (request) => {
+    const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_READERS);
+    return getSignInSettings(found.id);
+  });
+
+  app.post(
+    '/apps/:slug/oauth-clients',
+    {
+      schema: {
+        params: slugParams,
+        body: z.object({
+          provider: z.enum(['google', 'apple']),
+          platform: z.enum(platformEnum.enumValues),
+          clientId: z.string().trim().min(1).max(255),
+        }),
+      },
+    },
+    async (request, reply) => {
+      const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_EDITORS);
+      const created = await addOAuthClient(actorOf(request), found, request.body);
+      return reply.code(201).send({ oauthClient: created });
+    },
+  );
+
+  app.delete(
+    '/apps/:slug/oauth-clients/:clientId',
+    { schema: { params: slugParams.extend({ clientId: z.uuid() }) } },
+    async (request, reply) => {
+      const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_EDITORS);
+      await removeOAuthClient(actorOf(request), found, request.params.clientId);
+      return reply.code(204).send();
+    },
+  );
+
+  app.post('/apps/:slug/identity-keys', { schema: { params: slugParams } }, async (request, reply) => {
+    const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_EDITORS);
+    const key = await createBackendKey(actorOf(request), found);
+    // The private key must not stay in any cache on the way
+    return reply.code(201).header('cache-control', 'no-store').send(key);
+  });
+
+  app.post(
+    '/apps/:slug/identity-keys/:kid/revoke',
+    {
+      schema: {
+        params: slugParams.extend({ kid: z.string().min(1).max(100) }),
+        body: z.object({ reason: z.string().trim().min(1).max(500) }),
+      },
+    },
+    async (request, reply) => {
+      const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_EDITORS);
+      await revokeBackendKey(actorOf(request), found, request.params.kid, request.body.reason);
+      return reply.code(204).send();
     },
   );
 }

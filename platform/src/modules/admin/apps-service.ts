@@ -1,7 +1,10 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../core/db.js';
 import { AppError, isUniqueViolation } from '../../core/errors.js';
-import { appPlatforms, apps, type Platform } from '../apps/schema.js';
+import { generateIdentityKey } from '../apps/identity-keys.js';
+import { appPlatforms, apps, identityKeys, oauthClients, type Platform } from '../apps/schema.js';
+
 import { writeAudit, type Actor } from './audit.js';
 import { ALL_ROLES, hasAppRole } from './roles.js';
 import type { AdminRole } from './schema.js';
@@ -189,4 +192,177 @@ export async function setPlatform(actor: Actor, app: AdminApp, platform: Platfor
     }
     throw err;
   }
+}
+
+// ---------- Sign-in ----------
+
+// Google issues OAuth client IDs in this shape
+const GOOGLE_CLIENT_ID = /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
+// Apple: the bundle ID or a Services ID, both dotted identifiers
+const APPLE_CLIENT_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+
+export async function getSignInSettings(appId: string) {
+  const [clients, keys] = await Promise.all([
+    db
+      .select({
+        id: oauthClients.id,
+        provider: oauthClients.provider,
+        platform: oauthClients.platform,
+        clientId: oauthClients.clientId,
+        createdAt: oauthClients.createdAt,
+      })
+      .from(oauthClients)
+      .where(eq(oauthClients.appId, appId))
+      .orderBy(asc(oauthClients.provider), asc(oauthClients.createdAt)),
+    // Public halves stay out: the panel needs only the key ids and their state
+    db
+      .select({ kid: identityKeys.kid, createdAt: identityKeys.createdAt, revokedAt: identityKeys.revokedAt })
+      .from(identityKeys)
+      .where(eq(identityKeys.appId, appId))
+      .orderBy(desc(identityKeys.createdAt)),
+  ]);
+
+  return { oauthClients: clients, identityKeys: keys };
+}
+
+export async function addOAuthClient(
+  actor: Actor,
+  app: AdminApp,
+  input: { provider: 'google' | 'apple'; platform: Platform; clientId: string },
+) {
+  if (input.provider === 'apple' && input.platform !== 'ios') {
+    throw new AppError(400, 'apple_ios_only', 'Sign in with Apple is offered on iOS only');
+  }
+  if (!(input.provider === 'google' ? GOOGLE_CLIENT_ID : APPLE_CLIENT_ID).test(input.clientId)) {
+    throw new AppError(
+      400,
+      'invalid_client_id',
+      input.provider === 'google'
+        ? 'A Google client ID looks like 1234-abc.apps.googleusercontent.com'
+        : 'An Apple client ID is a bundle ID or Services ID such as com.example.app',
+    );
+  }
+
+  return db.transaction(async (tx) => {
+    const [platform] = await tx
+      .select({ platform: appPlatforms.platform })
+      .from(appPlatforms)
+      .where(and(eq(appPlatforms.appId, app.id), eq(appPlatforms.platform, input.platform)));
+    if (!platform) {
+      throw new AppError(400, 'platform_not_registered', `Add the ${input.platform} platform to the app first`);
+    }
+
+    // Unique per app and provider: one ID usually serves both platforms
+    const [existing] = await tx
+      .select({ id: oauthClients.id })
+      .from(oauthClients)
+      .where(
+        and(
+          eq(oauthClients.appId, app.id),
+          eq(oauthClients.provider, input.provider),
+          eq(oauthClients.clientId, input.clientId),
+        ),
+      );
+    if (existing) {
+      throw new AppError(409, 'client_exists', 'This client ID is already registered for the app');
+    }
+
+    const [created] = await tx
+      .insert(oauthClients)
+      .values({ appId: app.id, ...input })
+      .returning({
+        id: oauthClients.id,
+        provider: oauthClients.provider,
+        platform: oauthClients.platform,
+        clientId: oauthClients.clientId,
+        createdAt: oauthClients.createdAt,
+      });
+
+    await writeAudit(
+      {
+        adminId: actor.adminId,
+        action: 'app.oauth_client.add',
+        appId: app.id,
+        targetType: 'oauth_client',
+        targetId: created!.id,
+        after: input,
+        ip: actor.ip,
+      },
+      tx,
+    );
+    return created!;
+  });
+}
+
+export async function removeOAuthClient(actor: Actor, app: AdminApp, id: string) {
+  await db.transaction(async (tx) => {
+    const [removed] = await tx
+      .delete(oauthClients)
+      .where(and(eq(oauthClients.id, id), eq(oauthClients.appId, app.id)))
+      .returning({ provider: oauthClients.provider, platform: oauthClients.platform, clientId: oauthClients.clientId });
+    if (!removed) {
+      throw new AppError(404, 'client_not_found', 'No such client for this app');
+    }
+
+    await writeAudit(
+      {
+        adminId: actor.adminId,
+        action: 'app.oauth_client.remove',
+        appId: app.id,
+        targetType: 'oauth_client',
+        targetId: id,
+        before: removed,
+        ip: actor.ip,
+      },
+      tx,
+    );
+  });
+}
+
+// The private key is returned once and never stored or logged
+export async function createBackendKey(actor: Actor, app: AdminApp) {
+  const key = await generateIdentityKey();
+
+  await db.transaction(async (tx) => {
+    await tx.insert(identityKeys).values({ appId: app.id, kid: key.kid, publicJwk: key.publicJwk });
+    await writeAudit(
+      {
+        adminId: actor.adminId,
+        action: 'app.identity_key.create',
+        appId: app.id,
+        targetType: 'identity_key',
+        targetId: key.kid,
+        ip: actor.ip,
+      },
+      tx,
+    );
+  });
+
+  return { kid: key.kid, privateKey: key.privateKeyEnv };
+}
+
+export async function revokeBackendKey(actor: Actor, app: AdminApp, kid: string, reason: string) {
+  await db.transaction(async (tx) => {
+    const [revoked] = await tx
+      .update(identityKeys)
+      .set({ revokedAt: sql`now()` })
+      .where(and(eq(identityKeys.appId, app.id), eq(identityKeys.kid, kid), isNull(identityKeys.revokedAt)))
+      .returning({ kid: identityKeys.kid });
+    if (!revoked) {
+      throw new AppError(404, 'key_not_found', 'No active key with this id');
+    }
+
+    await writeAudit(
+      {
+        adminId: actor.adminId,
+        action: 'app.identity_key.revoke',
+        appId: app.id,
+        targetType: 'identity_key',
+        targetId: kid,
+        reason,
+        ip: actor.ip,
+      },
+      tx,
+    );
+  });
 }

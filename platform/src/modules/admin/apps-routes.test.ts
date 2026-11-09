@@ -169,3 +169,81 @@ describe('app platforms', () => {
     expect((await authed('PUT', `/apps/${first.slug}/platforms/ios`, token, { bundleId })).statusCode).toBe(200);
   });
 });
+
+describe('sign-in settings', () => {
+  const GOOGLE_ID = '123456789012-abcdefghijklmnop.apps.googleusercontent.com';
+
+  it('adds and removes Google and Apple clients with their checks', async () => {
+    const token = await signIn(await createTestAdmin());
+    const created = await createApp(token);
+    const clients = `/apps/${created.slug}/oauth-clients`;
+    const google = { provider: 'google', platform: 'android', clientId: GOOGLE_ID };
+
+    // The platform has to exist first
+    const early = await authed('POST', clients, token, google);
+    expect(early.json().error).toBe('platform_not_registered');
+
+    const bundleId = `com.example.${created.slug.replaceAll('-', '')}`;
+    await authed('PUT', `/apps/${created.slug}/platforms/android`, token, { bundleId });
+
+    expect((await authed('POST', clients, token, { ...google, clientId: 'not-a-google-id' })).statusCode).toBe(400);
+    expect(
+      (await authed('POST', clients, token, { provider: 'apple', platform: 'android', clientId: bundleId })).json()
+        .error,
+    ).toBe('apple_ios_only');
+
+    const added = await authed('POST', clients, token, google);
+    expect(added.statusCode).toBe(201);
+    expect((await authed('POST', clients, token, google)).statusCode).toBe(409);
+
+    const settings = (await authed('GET', `/apps/${created.slug}/sign-in`, token)).json();
+    expect(settings.oauthClients).toEqual([expect.objectContaining({ provider: 'google', clientId: GOOGLE_ID })]);
+
+    const id = added.json().oauthClient.id;
+    expect((await authed('DELETE', `${clients}/${id}`, token)).statusCode).toBe(204);
+    expect((await authed('DELETE', `${clients}/${id}`, token)).statusCode).toBe(404);
+
+    expect((await auditOf(created.id)).map((entry) => entry.action)).toEqual([
+      'app.create',
+      'app.platform.add',
+      'app.oauth_client.add',
+      'app.oauth_client.remove',
+    ]);
+  });
+
+  it('creates a backend key shown once and revokes it with a reason', async () => {
+    const token = await signIn(await createTestAdmin());
+    const created = await createApp(token);
+    const keys = `/apps/${created.slug}/identity-keys`;
+
+    const res = await authed('POST', keys, token);
+    expect(res.statusCode).toBe(201);
+    expect(res.headers['cache-control']).toBe('no-store');
+    const { kid, privateKey } = res.json();
+    const jwk = JSON.parse(Buffer.from(privateKey, 'base64url').toString('utf8'));
+    expect(jwk).toMatchObject({ kty: 'OKP', crv: 'Ed25519', kid, alg: 'EdDSA' });
+    expect(jwk.d).toBeTypeOf('string');
+
+    // The panel sees the key, never its private or public halves
+    const listed = (await authed('GET', `/apps/${created.slug}/sign-in`, token)).json().identityKeys;
+    expect(listed).toEqual([{ kid, createdAt: expect.any(String), revokedAt: null }]);
+
+    expect((await authed('POST', `${keys}/${kid}/revoke`, token, {})).statusCode).toBe(400);
+    expect((await authed('POST', `${keys}/${kid}/revoke`, token, { reason: 'Leaked in a log' })).statusCode).toBe(204);
+    expect((await authed('POST', `${keys}/${kid}/revoke`, token, { reason: 'Again' })).statusCode).toBe(404);
+
+    const entries = await auditOf(created.id);
+    expect(entries.at(-1)).toMatchObject({ action: 'app.identity_key.revoke', reason: 'Leaked in a log' });
+    // The private key never reaches the audit log
+    expect(JSON.stringify(entries)).not.toContain(jwk.d);
+  });
+
+  it('lets product read but not change sign-in settings', async () => {
+    const owner = await signIn(await createTestAdmin());
+    const created = await createApp(owner);
+    const product = await signIn(await createTestAdmin({ role: 'product', appId: created.id }));
+
+    expect((await authed('GET', `/apps/${created.slug}/sign-in`, product)).statusCode).toBe(200);
+    expect((await authed('POST', `/apps/${created.slug}/identity-keys`, product)).statusCode).toBe(403);
+  });
+});
