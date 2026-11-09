@@ -26,8 +26,8 @@ if (!slug || !path) {
       const result = await uploadTrackingPlan(app.id, json);
       console.log(
         result.status === 'created'
-          ? `Uploaded a new plan version with ${result.events} events`
-          : 'The plan is already up to date',
+          ? `Uploaded the plan as v${result.version}: ${result.summary}`
+          : `The plan is already up to date (v${result.version})`,
       );
     } catch (err) {
       if (!(err instanceof AppError)) throw err;

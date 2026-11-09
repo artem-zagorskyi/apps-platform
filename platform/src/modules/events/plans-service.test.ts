@@ -30,9 +30,9 @@ afterAll(async () => {
 });
 
 describe('uploadTrackingPlan', () => {
-  it('stores a new plan and skips an identical one', async () => {
-    expect(await uploadTrackingPlan(appId, appPlan)).toEqual({ status: 'created', events: 1 });
-    expect(await uploadTrackingPlan(appId, appPlan)).toEqual({ status: 'unchanged', events: 1 });
+  it('stores a new plan as the next version and skips an identical one', async () => {
+    expect(await uploadTrackingPlan(appId, appPlan)).toMatchObject({ status: 'created', version: 1, events: 1 });
+    expect(await uploadTrackingPlan(appId, appPlan)).toMatchObject({ status: 'unchanged', version: 1, events: 1 });
   });
 
   it('rejects an invalid plan', async () => {

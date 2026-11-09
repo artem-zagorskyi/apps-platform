@@ -1,4 +1,4 @@
-import { date, index, integer, jsonb, pgSchema, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { date, integer, jsonb, pgSchema, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId } from '../../core/columns.js';
 import { apps, platformEnum } from '../apps/schema.js';
 import type { TrackingPlan } from './plan.js';
@@ -6,8 +6,8 @@ import type { TrackingPlan } from './plan.js';
 // All tables of this module live in the "events" Postgres schema
 export const eventsSchema = pgSchema('events');
 
-// Uploaded tracking plans of apps. The latest one is in effect;
-// older ones stay as history.
+// Uploaded tracking plans of apps. The highest number is in effect;
+// older versions stay as history.
 export const trackingPlans = eventsSchema.table(
   'tracking_plans',
   {
@@ -15,15 +15,16 @@ export const trackingPlans = eventsSchema.table(
     appId: uuid('app_id')
       .notNull()
       .references(() => apps.id),
+    // Version number within the app: 1, 2, 3, ...
+    number: integer('number').notNull(),
     plan: jsonb('plan').$type<TrackingPlan>().notNull(),
-    // SHA-256 of the plan JSON: the same plan is not stored twice
+    // SHA-256 of the plan JSON with sorted keys
     planHash: text('plan_hash').notNull(),
+    // Email of the admin who uploaded it; null for the plan:upload script
+    uploadedBy: text('uploaded_by'),
     createdAt: createdAt(),
   },
-  (t) => [
-    unique('tracking_plans_app_hash_key').on(t.appId, t.planHash),
-    index('tracking_plans_app_created_idx').on(t.appId, t.createdAt.desc()),
-  ],
+  (t) => [unique('tracking_plans_app_number_key').on(t.appId, t.number)],
 );
 
 // Ids of received events, for deduplication. The partitioned events table

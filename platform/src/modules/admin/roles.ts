@@ -16,3 +16,6 @@ export function hasAppRole(session: AdminSession, appId: string, roles: readonly
 export function hasGlobalRole(session: AdminSession, roles: readonly AdminRole[]): boolean {
   return session.roles.some((grant) => grant.appId === null && roles.includes(grant.role));
 }
+
+// Tracking plans, parameters and config are product work: owner and product change them
+export const PRODUCT_EDITORS = SETTINGS_READERS;
