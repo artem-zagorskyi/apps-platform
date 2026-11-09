@@ -24,8 +24,8 @@ afterAll(async () => {
 
 describe('uploadParameterSchema', () => {
   it('stores a new schema and skips an identical one', async () => {
-    expect(await uploadParameterSchema(appId, schema)).toEqual({ status: 'created', parameters: 1 });
-    expect(await uploadParameterSchema(appId, schema)).toEqual({ status: 'unchanged', parameters: 1 });
+       expect(await uploadParameterSchema(appId, schema)).toMatchObject({ status: 'created', version: 1, parameters: 1 });
+       expect(await uploadParameterSchema(appId, schema)).toMatchObject({ status: 'unchanged', version: 1, parameters: 1 });
   });
 
   it('rejects an invalid schema', async () => {
