@@ -5,6 +5,7 @@ import { adminConsentRoutes } from './modules/admin/consents-routes.js';
 import { adminWebhookRoutes } from './modules/admin/webhooks-routes.js';
 import { adminTrackingPlanRoutes } from './modules/admin/tracking-plan-routes.js';
 import { adminConfigRoutes } from './modules/admin/config-routes.js';
+import { adminCatalogRoutes } from './modules/admin/catalog-routes.js';
 
 // The internal admin API: a second Fastify server in the same process,
 // listening on ADMIN_PORT. Only the admin panel's Next.js server calls it;
@@ -21,6 +22,7 @@ export async function buildAdminApp(options: Pick<ServerOptions, 'logStream'> = 
   await app.register(adminWebhookRoutes, { prefix: '/admin/v1' });
   await app.register(adminTrackingPlanRoutes, { prefix: '/admin/v1' });
   await app.register(adminConfigRoutes, { prefix: '/admin/v1' });
+  await app.register(adminCatalogRoutes, { prefix: '/admin/v1' });
 
   return app;
 }

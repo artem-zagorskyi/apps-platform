@@ -1,7 +1,8 @@
-import { bigint, boolean, foreignKey, index, jsonb, pgSchema, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, foreignKey, index, integer,jsonb, pgSchema, text, unique, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId, tz } from '../../core/columns.js';
 import { apps } from '../apps/schema.js';
 import { users } from '../identity/schema.js';
+import type { Catalog } from './catalog.js';
 
 // All tables of this module live in the "billing" Postgres schema
 export const billingSchema = pgSchema('billing');
@@ -60,6 +61,28 @@ export const products = billingSchema.table(
     archivedAt: tz('archived_at'),
   },
   (t) => [unique('products_app_store_product_key').on(t.appId, t.store, t.productId)],
+);
+
+// Every catalog upload that changed something, for the history in the admin panel.
+// The products table above is what is in effect.
+export const catalogVersions = billingSchema.table(
+  'catalog_versions',
+  {
+    id: primaryId(),
+    appId: uuid('app_id')
+      .notNull()
+      .references(() => apps.id),
+    // Version number within the app: 1, 2, 3, ...
+    number: integer('number').notNull(),
+    // The uploaded catalog, normalized
+    catalog: jsonb('catalog').$type<Catalog>().notNull(),
+    // What the upload changed, e.g. "1 product added · 1 archived"
+    summary: text('summary').notNull(),
+    // Email of the admin who uploaded it; null for the billing:catalog script
+    uploadedBy: text('uploaded_by'),
+    createdAt: createdAt(),
+  },
+  (t) => [unique('catalog_versions_app_number_key').on(t.appId, t.number)],
 );
 
 // One row per purchase in a store; a subscription with all its renewals

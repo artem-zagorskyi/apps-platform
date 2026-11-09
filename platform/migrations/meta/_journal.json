@@ -155,6 +155,13 @@
       "when": 1794244675492,
       "tag": "0021_config_schema_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794246921280,
+      "tag": "0022_catalog_versions",
+      "breakpoints": true
     }
   ]
 }
