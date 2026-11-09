@@ -225,3 +225,27 @@ export async function setHoldout(slug, _previous, formData) {
     refreshConfig(slug);
   });
 }
+
+function refreshSubscriptions(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/subscriptions`);
+}
+
+// What uploading the file would do; nothing is stored
+export async function checkCatalog(slug, text) {
+  const file = parseJsonFile(text);
+  if (file.error) return { error: file.error };
+  return runAction(() =>
+    adminApi(`${appPath(slug)}/catalog/check`, { method: 'POST', body: { catalog: file.json } }),
+  );
+}
+
+// Returns { status: 'created' | 'unchanged', version, summary, added, updated, archived, unchanged }
+export async function uploadCatalog(slug, text) {
+  const file = parseJsonFile(text);
+  if (file.error) return { error: file.error };
+  return runAction(async () => {
+    const result = await adminApi(`${appPath(slug)}/catalog`, { method: 'POST', body: { catalog: file.json } });
+    refreshSubscriptions(slug);
+    return result;
+  });
+}

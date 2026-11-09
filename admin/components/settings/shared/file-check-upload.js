@@ -182,14 +182,16 @@ export function FileCheckUpload({ fileName, maxBytes = 500_000, checkAction, upl
 
       {result?.status === 'unchanged' && (
         <div className="border-t border-border p-3">
-          <Callout title={`Same as the current version v${result.currentVersion}`}>Nothing to upload.</Callout>
+          <Callout title={result.currentVersion ? `Same as the current version v${result.currentVersion}` : 'Same as now'}>
+            Nothing to upload.
+          </Callout>
         </div>
       )}
 
       {result && result.status !== 'unchanged' && (
         <div className="border-t border-border">
           <div className="px-3 pt-2.5 text-xs font-semibold text-muted-foreground">
-            {result.currentVersion ? `Changes compared to v${result.currentVersion}` : 'Contents of the first version'}
+            {result.currentVersion ? `Changes compared to v${result.currentVersion}` : 'Changes'}          
           </div>
           <DiffList items={changes} />
         </div>

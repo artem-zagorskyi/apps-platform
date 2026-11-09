@@ -28,3 +28,4 @@ export const getConsentSettings = cache((slug) => readApp(slug, '/consent-policy
 export const getWebhookSettings = cache((slug) => readApp(slug, '/webhook'));
 export const getTrackingPlan = cache((slug) => readApp(slug, '/tracking-plan'));
 export const getConfigSchema = cache((slug) => readApp(slug, '/config-schema'));
+export const getCatalog = cache((slug) => readApp(slug, '/catalog'));
