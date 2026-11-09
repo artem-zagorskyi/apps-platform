@@ -19,7 +19,7 @@ export function LinkTabs({ tabs, label }) {
             href={tab.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex h-[38px] items-center whitespace-nowrap border-b-2 px-2.5 text-[13px] outline-none focus-visible:bg-accent',
+              'flex h-[2.375rem] items-center whitespace-nowrap border-b-2 px-2.5 text-[0.8125rem] outline-none focus-visible:bg-accent',
               active
                 ? 'border-primary font-semibold text-foreground'
                 : 'border-transparent font-medium text-muted-foreground hover:text-foreground',

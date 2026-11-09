@@ -15,7 +15,7 @@ const ORDER = ['removed', 'type changed', 'warning', 'changed', 'deprecated', 'a
 /** items: [{ kind, target, detail? }]; target is shown in mono. */
 export function DiffList({ items, empty = 'No changes compared to the current version.' }) {
   if (!items?.length) {
-    return <div className="px-3 py-2.5 text-[13px] text-muted-foreground">{empty}</div>;
+    return <div className="px-3 py-2.5 text-[0.8125rem] text-muted-foreground">{empty}</div>;
   }
   const sorted = [...items].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind));
 
@@ -26,7 +26,7 @@ export function DiffList({ items, empty = 'No changes compared to the current ve
         return (
           <li
             key={index}
-            className="grid grid-cols-[100px_minmax(0,1fr)] items-baseline gap-3 border-t border-border px-3 py-2 text-[13px] first:border-t-0"
+            className="grid grid-cols-[6.25rem_minmax(0,1fr)] items-baseline gap-3 border-t border-border px-3 py-2 text-[0.8125rem] first:border-t-0"
           >
             <span>
               <Badge tone={tone} size="sm">

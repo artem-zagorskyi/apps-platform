@@ -40,12 +40,12 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmL
     <A.Root open={open} onOpenChange={(next) => { if (!pending) onOpenChange?.(next); }}>
       <A.Portal>
         <A.Backdrop className="fixed inset-0 z-50 bg-[oklch(0.15_0.02_262/0.45)] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-        <A.Popup className="fixed left-1/2 top-1/2 z-50 w-[480px] max-w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[10px] border border-border bg-popover shadow-2xl outline-none transition-all data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
-          <div className="flex gap-3 px-5 pt-[18px]">
+        <A.Popup className="fixed left-1/2 top-1/2 z-50 w-[30rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[0.625rem] border border-border bg-popover shadow-2xl outline-none transition-all data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
+          <div className="flex gap-3 px-5 pt-[1.125rem]">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive-soft text-destructive"><TriangleAlert className="size-4" /></span>
             <div className="flex flex-col gap-1.5">
               <A.Title className="text-base font-semibold">{title}</A.Title>
-              <A.Description className="text-[13px] text-muted-foreground text-pretty">{description}</A.Description>
+              <A.Description className="text-[0.8125rem] text-muted-foreground text-pretty">{description}</A.Description>
             </div>
           </div>
           <div className="flex flex-col gap-3 py-4 pl-16 pr-5">

@@ -6,12 +6,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * Dense grid-based table (no <table>, so columns can hold rich cells).
- * columns: [{ key, header, width: "minmax(160px,1.4fr)" | "90px", align?: "right", mono?, sortable?, cell?: (row) => node }]
+ * columns: [{ key, header, width: "minmax(10rem,1.4fr)" | "5.625rem", align?: "right", mono?, sortable?, cell?: (row) => node }]
  * rows, getRowId, onRowClick, selectedId, expandable: (row) => node, minWidth, loading, empty
  */
 export function DataTable({ columns, rows, getRowId = (r, i) => r.id ?? i, onRowClick, selectedId, expandable, minWidth = 0, rowHeight = 40, loading, empty, sort, onSortChange, className }) {
   const [open, setOpen] = React.useState(null);
-  const tpl = (expandable ? "28px " : "") + columns.map((c) => c.width ?? "minmax(0,1fr)").join(" ");
+  const tpl = (expandable ? "1.75rem " : "") + columns.map((c) => c.width ?? "minmax(0,1fr)").join(" ");
   const head = "grid items-center gap-3 border-t border-border bg-muted px-4 text-xs font-medium text-muted-foreground";
   return (
     <div className={cn("overflow-x-auto", className)}>
@@ -39,7 +39,7 @@ export function DataTable({ columns, rows, getRowId = (r, i) => r.id ?? i, onRow
           return (
             <div key={id} role="rowgroup">
               <div role="row" onClick={onRowClick ? () => onRowClick(r) : expandable ? () => setOpen(isOpen ? null : id) : undefined}
-                className={cn("grid items-center gap-3 border-t border-border px-4 text-[13px] tabular-nums", (onRowClick || expandable) && "cursor-pointer hover:bg-accent", selectedId === id && "bg-primary-soft hover:bg-primary-soft", isOpen && "bg-muted")}
+                className={cn("grid items-center gap-3 border-t border-border px-4 text-[0.8125rem] tabular-nums", (onRowClick || expandable) && "cursor-pointer hover:bg-accent", selectedId === id && "bg-primary-soft hover:bg-primary-soft", isOpen && "bg-muted")}
                 style={{ gridTemplateColumns: tpl, minHeight: rowHeight }}>
                 {expandable && <ChevronRight className={cn("size-3.5 text-muted-foreground transition-transform", isOpen && "rotate-90")} />}
                 {columns.map((c) => (

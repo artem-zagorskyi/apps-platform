@@ -1,7 +1,7 @@
 import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva("inline-flex items-center gap-1.5 whitespace-nowrap rounded-[5px] font-medium", {
+const badgeVariants = cva("inline-flex items-center gap-1.5 whitespace-nowrap rounded-[0.3125rem] font-medium", {
   variants: {
     tone: {
       neutral: "bg-muted text-muted-foreground",
@@ -12,7 +12,7 @@ const badgeVariants = cva("inline-flex items-center gap-1.5 whitespace-nowrap ro
       destructive: "bg-destructive-soft text-destructive",
       solidDestructive: "bg-destructive text-destructive-foreground",
     },
-    size: { default: "h-[22px] px-2 text-xs", sm: "h-5 px-1.5 text-[11px]" },
+    size: { default: "h-[1.375rem] px-2 text-xs", sm: "h-5 px-1.5 text-[0.6875rem]" },
   },
   defaultVariants: { tone: "neutral", size: "default" },
 });

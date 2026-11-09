@@ -18,13 +18,13 @@ export function CardSection({ className, border = true, ...p }) {
 
 /** Tab content column. */
 export function SettingsColumn({ children }) {
-  return <div className="flex w-full max-w-[760px] flex-col gap-4">{children}</div>;
+  return <div className="flex w-full max-w-[47.5rem] flex-col gap-4">{children}</div>;
 }
 
 /** label → value rows. items: [{ label, value, mono? }] */
 export function KeyValueList({ items }) {
   return (
-    <dl className="grid grid-cols-[150px_minmax(0,1fr)] border-t border-border text-[13px]">
+    <dl className="grid grid-cols-[9.375rem_minmax(0,1fr)] border-t border-border text-[0.8125rem]">
       {items.map((it, i) => (
         <div key={i} className="contents">
           <dt className="border-b border-border px-4 py-2.5 text-muted-foreground last-of-type:border-b-0">{it.label}</dt>

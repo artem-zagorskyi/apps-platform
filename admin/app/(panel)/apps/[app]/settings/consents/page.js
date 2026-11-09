@@ -110,7 +110,7 @@ export default async function ConsentsSettingsPage({ params }) {
                   defaultValue={policy.repromptAfterDays}
                   className="w-24 tabular-nums"
                 />
-                <span className="text-[13px] text-muted-foreground">days, 30 to 730</span>
+                <span className="text-[0.8125rem] text-muted-foreground">days, 30 to 730</span>
               </span>
             </label>
           </ActionForm>

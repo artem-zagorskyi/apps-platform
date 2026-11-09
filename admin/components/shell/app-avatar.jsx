@@ -6,7 +6,7 @@ export function AppAvatar({ app, size = 20 }) {
     <span
       aria-hidden="true"
       style={{ width: size, height: size, fontSize: size * 0.42, background: app ? appColor(app) : 'oklch(0.45 0.02 260)' }}
-      className="flex shrink-0 items-center justify-center rounded-[5px] font-mono font-semibold leading-none text-white"
+      className="flex shrink-0 items-center justify-center rounded-[0.3125rem] font-mono font-semibold leading-none text-white"
     >
       {app ? appInitials(app.name) : 'All'}
     </span>

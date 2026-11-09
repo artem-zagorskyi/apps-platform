@@ -32,7 +32,7 @@ export function AddClientForm({ action, platforms }) {
             { value: 'google', label: 'Google' },
             { value: 'apple', label: 'Apple', disabled: !platforms.includes('ios') },
           ]}
-          triggerClassName="h-8 w-[104px] justify-between"
+          triggerClassName="h-8 w-[6.5rem] justify-between"
         />
         <Select
           name="platform"
@@ -40,7 +40,7 @@ export function AddClientForm({ action, platforms }) {
           value={selected}
           onValueChange={setPlatform}
           items={choices.map((item) => ({ value: item, label: PLATFORM_LABELS[item] }))}
-          triggerClassName="h-8 w-[104px] justify-between"
+          triggerClassName="h-8 w-[6.5rem] justify-between"
         />
         <Input
           name="clientId"

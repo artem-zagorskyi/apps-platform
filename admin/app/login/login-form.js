@@ -37,7 +37,7 @@ function Notice({ kind }) {
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-2 rounded-[7px] px-3 py-2.5 text-[13px]',
+        'flex items-start gap-2 rounded-[0.4375rem] px-3 py-2.5 text-[0.8125rem]',
         tone === 'destructive' ? 'bg-destructive-soft' : 'bg-warning-soft',
       )}
     >
@@ -57,13 +57,13 @@ export function LoginForm() {
   return (
     <form
       action={formAction}
-      className="flex w-[380px] max-w-full flex-col gap-[18px] rounded-[10px] border border-border bg-card px-7 pb-6 pt-7"
+      className="flex w-[23.75rem] max-w-full flex-col gap-[1.125rem] rounded-[0.625rem] border border-border bg-card px-7 pb-6 pt-7"
     >
       <div className="flex flex-col items-start gap-3.5">
         <Logo size={32} />
-        <div className="flex flex-col gap-[3px]">
+        <div className="flex flex-col gap-[0.1875rem]">
           <h1 className="text-lg font-semibold tracking-[-0.015em]">Renvix Apps Platform</h1>
-          <p className="text-[13px] text-muted-foreground">Sign in to the admin panel</p>
+          <p className="text-[0.8125rem] text-muted-foreground">Sign in to the admin panel</p>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ export function LoginForm() {
             required
             disabled={pending}
             aria-invalid={invalid}
-            className="h-9 font-mono text-[15px] tracking-[0.12em]"
+            className="h-9 font-mono text-[0.9375rem] tracking-[0.12em]"
           />
         </Field>
       </div>

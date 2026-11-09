@@ -96,7 +96,7 @@ export function FileCheckUpload({ fileName, maxBytes = 500_000, checkAction, upl
             pick(event.dataTransfer.files?.[0]);
           }}
           className={cn(
-            'flex h-24 w-full flex-col items-center justify-center gap-1 rounded-lg border-[1.5px] border-dashed bg-muted px-3 text-center text-[13px] outline-none transition-colors hover:border-ring focus-visible:border-ring',
+            'flex h-24 w-full flex-col items-center justify-center gap-1 rounded-lg border-[0.0938rem] border-dashed bg-muted px-3 text-center text-[0.8125rem] outline-none transition-colors hover:border-ring focus-visible:border-ring',
             drag ? 'border-ring bg-primary-soft' : 'border-input',
           )}
         >
@@ -134,7 +134,7 @@ export function FileCheckUpload({ fileName, maxBytes = 500_000, checkAction, upl
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
-      <div className="flex flex-wrap items-center gap-2.5 bg-muted px-3 py-2.5 text-[13px]">
+      <div className="flex flex-wrap items-center gap-2.5 bg-muted px-3 py-2.5 text-[0.8125rem]">
         <FileJson className="size-4 text-muted-foreground" />
         <span className="font-mono text-xs font-medium">{file.name}</span>
         {phase === 'checking' ? (
@@ -171,7 +171,7 @@ export function FileCheckUpload({ fileName, maxBytes = 500_000, checkAction, upl
           <div className="mb-1.5 text-xs font-semibold text-destructive">Fix these before uploading</div>
           <ul className="flex flex-col gap-1">
             {errors.map((problem, index) => (
-              <li key={index} className="text-[13px]">
+              <li key={index} className="text-[0.8125rem]">
                 <span className="font-mono text-xs font-medium">{problem.target}</span>{' '}
                 <span className="text-muted-foreground">· {problem.message}</span>
               </li>

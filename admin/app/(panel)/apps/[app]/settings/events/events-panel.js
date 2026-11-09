@@ -41,7 +41,7 @@ function AllowedValues({ property }) {
     return (
       <span className="flex flex-wrap gap-1">
         {property.values.map((value) => (
-          <code key={value} className="rounded border border-border bg-card px-1 font-mono text-[11px]">
+          <code key={value} className="rounded border border-border bg-card px-1 font-mono text-[0.6875rem]">
             {value}
           </code>
         ))}
@@ -65,10 +65,10 @@ function PropertyTable({ properties }) {
       </div>
     );
   }
-  const grid = 'grid grid-cols-[minmax(150px,1fr)_70px_70px_minmax(0,1.3fr)] gap-3';
+  const grid = 'grid grid-cols-[minmax(9.375rem,1fr)_4.375rem_4.375rem_minmax(0,1.3fr)] gap-3';
   return (
     <div className="border-t border-border bg-muted py-1.5 pl-12 pr-4">
-      <div className={cn(grid, 'py-1 text-[11px] font-medium text-muted-foreground')}>
+      <div className={cn(grid, 'py-1 text-[0.6875rem] font-medium text-muted-foreground')}>
         <span>Property</span>
         <span>Type</span>
         <span>Required</span>
@@ -85,7 +85,7 @@ function PropertyTable({ properties }) {
                 </Badge>
               )}
             </span>
-            {property.description && <span className="text-[11px] text-muted-foreground">{property.description}</span>}
+            {property.description && <span className="text-[0.6875rem] text-muted-foreground">{property.description}</span>}
           </span>
           <span className="font-mono text-muted-foreground">{property.type}</span>
           <span>{property.required ? 'yes' : <span className="text-muted-foreground">no</span>}</span>
@@ -105,11 +105,11 @@ function EventList({ events }) {
   const shown = events.filter(
     (event) => (category === 'all' || event.category === category) && (!search || event.name.includes(search)),
   );
-  const grid = { gridTemplateColumns: '28px minmax(180px,1.3fr) 96px 80px minmax(0,1fr)' };
+  const grid = { gridTemplateColumns: '1.75rem minmax(11.25rem,1.3fr) 6rem 5rem minmax(0,1fr)' };
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[600px]">
+      <div className="min-w-[37.5rem]">
         {events.length > 6 && (
           <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
             <SearchInput
@@ -117,7 +117,7 @@ function EventList({ events }) {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Filter events"
               aria-label="Filter events"
-              className="min-w-[180px] flex-1"
+              className="min-w-[11.25rem] flex-1"
             />
             <Segmented
               value={category}
@@ -149,7 +149,7 @@ function EventList({ events }) {
                 onClick={() => setOpen(isOpen ? null : event.name)}
                 aria-expanded={isOpen}
                 className={cn(
-                  'grid min-h-10 w-full items-center gap-3 border-t border-border px-4 text-left text-[13px] hover:bg-accent',
+                  'grid min-h-10 w-full items-center gap-3 border-t border-border px-4 text-left text-[0.8125rem] hover:bg-accent',
                   isOpen && 'bg-muted',
                   event.deprecated && 'opacity-60',
                 )}
@@ -185,11 +185,11 @@ function EventList({ events }) {
 }
 
 const HISTORY_COLUMNS = [
-  { key: 'version', header: 'Version', width: '64px', mono: true },
-  { key: 'uploadedAt', header: 'Uploaded', width: '150px' },
-  { key: 'uploadedBy', header: 'By', width: 'minmax(120px,0.8fr)' },
-  { key: 'summary', header: 'Changes', width: 'minmax(180px,1.4fr)' },
-  { key: 'current', header: '', width: '64px', align: 'right' },
+  { key: 'version', header: 'Version', width: '4rem', mono: true },
+  { key: 'uploadedAt', header: 'Uploaded', width: '9.375rem' },
+  { key: 'uploadedBy', header: 'By', width: 'minmax(7.5rem,0.8fr)' },
+  { key: 'summary', header: 'Changes', width: 'minmax(11.25rem,1.4fr)' },
+  { key: 'current', header: '', width: '4rem', align: 'right' },
 ];
 
 /**

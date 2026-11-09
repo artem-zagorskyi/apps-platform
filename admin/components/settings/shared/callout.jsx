@@ -11,7 +11,7 @@ const T = {
 export function Callout({ tone = "info", title, children, action, className }) {
   const [box, ink, Icon] = T[tone];
   return (
-    <div role={tone === "destructive" ? "alert" : undefined} className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[13px]", box, className)}>
+    <div role={tone === "destructive" ? "alert" : undefined} className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[0.8125rem]", box, className)}>
       <Icon className={cn("mt-px size-4 shrink-0", ink)} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-pretty">{title && <b className="font-semibold">{title}</b>}{children && <span className={title ? "text-muted-foreground" : ""}>{children}</span>}</div>
       {action}

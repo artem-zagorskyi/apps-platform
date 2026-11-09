@@ -23,7 +23,7 @@ export function SecretOnce({ title, description, value }) {
     <div role="status" className="flex flex-col gap-2.5 rounded-lg border border-warning bg-warning-soft p-3.5">
       <div className="flex items-start gap-2.5">
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-        <div className="flex flex-col gap-0.5 text-[13px]">
+        <div className="flex flex-col gap-0.5 text-[0.8125rem]">
           <span className="font-semibold">{title}</span>
           <span className="text-muted-foreground text-pretty">{description} It is not shown again.</span>
         </div>

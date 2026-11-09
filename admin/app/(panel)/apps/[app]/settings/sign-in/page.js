@@ -15,18 +15,18 @@ const PLATFORM_LABELS = { android: 'Android', ios: 'iOS' };
 
 // Cells are built here, on the server, so the client table receives no functions
 const CLIENT_COLUMNS = [
-  { key: 'provider', header: 'Provider', width: '90px' },
-  { key: 'platform', header: 'Platform', width: '90px' },
-  { key: 'clientId', header: 'Client ID', width: 'minmax(220px,1fr)' },
-  { key: 'createdAt', header: 'Added', width: '150px' },
-  { key: 'actions', header: '', width: '90px', align: 'right' },
+  { key: 'provider', header: 'Provider', width: '5.625rem' },
+  { key: 'platform', header: 'Platform', width: '5.625rem' },
+  { key: 'clientId', header: 'Client ID', width: 'minmax(13.75rem,1fr)' },
+  { key: 'createdAt', header: 'Added', width: '9.375rem' },
+  { key: 'actions', header: '', width: '5.625rem', align: 'right' },
 ];
 
 const KEY_COLUMNS = [
-  { key: 'kid', header: 'Key ID', width: 'minmax(200px,1fr)', mono: true },
-  { key: 'createdAt', header: 'Created', width: '150px' },
-  { key: 'state', header: 'State', width: 'minmax(200px,1fr)' },
-  { key: 'actions', header: '', width: '90px', align: 'right' },
+  { key: 'kid', header: 'Key ID', width: 'minmax(12.5rem,1fr)', mono: true },
+  { key: 'createdAt', header: 'Created', width: '9.375rem' },
+  { key: 'state', header: 'State', width: 'minmax(12.5rem,1fr)' },
+  { key: 'actions', header: '', width: '5.625rem', align: 'right' },
 ];
 
 export default async function SignInSettingsPage({ params }) {
@@ -106,7 +106,7 @@ export default async function SignInSettingsPage({ params }) {
           {platformNames.length > 0 ? (
             <AddClientForm action={addOAuthClient.bind(null, app.slug)} platforms={platformNames} />
           ) : (
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               Add a platform first, on the{' '}
               <Link
                 href={`/apps/${app.slug}/settings/platforms`}

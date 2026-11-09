@@ -13,19 +13,19 @@ const STORE = { google_play: 'Google Play', app_store: 'App Store' };
 const count = (n) => n.toLocaleString('en-US');
 
 const PRODUCT_COLUMNS = [
-  { key: 'productId', header: 'Product ID', width: 'minmax(170px,1.3fr)' },
-  { key: 'store', header: 'Store', width: '100px' },
-  { key: 'kind', header: 'Kind', width: '100px' },
-  { key: 'entitlements', header: 'Grants', width: 'minmax(120px,1fr)' },
-  { key: 'withAccess', header: 'With access', width: '96px', align: 'right' },
+  { key: 'productId', header: 'Product ID', width: 'minmax(10.625rem,1.3fr)' },
+  { key: 'store', header: 'Store', width: '6.25rem' },
+  { key: 'kind', header: 'Kind', width: '6.25rem' },
+  { key: 'entitlements', header: 'Grants', width: 'minmax(7.5rem,1fr)' },
+  { key: 'withAccess', header: 'With access', width: '6rem', align: 'right' },
 ];
 
 const HISTORY_COLUMNS = [
-  { key: 'version', header: 'Version', width: '64px', mono: true },
-  { key: 'uploadedAt', header: 'Uploaded', width: '150px' },
-  { key: 'uploadedBy', header: 'By', width: 'minmax(120px,0.8fr)' },
-  { key: 'summary', header: 'Changes', width: 'minmax(180px,1.4fr)' },
-  { key: 'current', header: '', width: '64px', align: 'right' },
+  { key: 'version', header: 'Version', width: '4rem', mono: true },
+  { key: 'uploadedAt', header: 'Uploaded', width: '9.375rem' },
+  { key: 'uploadedBy', header: 'By', width: 'minmax(7.5rem,0.8fr)' },
+  { key: 'summary', header: 'Changes', width: 'minmax(11.25rem,1.4fr)' },
+  { key: 'current', header: '', width: '4rem', align: 'right' },
 ];
 
 /**
@@ -107,7 +107,7 @@ export function SubscriptionsPanel({ overview, actions }) {
           <div className="flex flex-col border-t border-border pb-1.5">
             <div className="px-4 pb-1 pt-3 text-xs font-semibold text-muted-foreground">Entitlements</div>
             {entitlements.map((entitlement) => (
-              <div key={entitlement.key} className="flex items-baseline gap-3 px-4 py-1.5 text-[13px]">
+              <div key={entitlement.key} className="flex items-baseline gap-3 px-4 py-1.5 text-[0.8125rem]">
                 <span className="font-mono text-xs font-semibold">{entitlement.key}</span>
                 <span className="text-xs text-muted-foreground">
                   {entitlement.products === 0

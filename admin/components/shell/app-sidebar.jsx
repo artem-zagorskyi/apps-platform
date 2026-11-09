@@ -18,7 +18,7 @@ function isActive(pathname, href) {
 
 function NavItem({ href, icon: Icon, label, active, disabled, collapsed }) {
   const className = cn(
-    'flex h-8 items-center gap-[9px] rounded-md px-2 text-[13px]',
+    'flex h-8 items-center gap-[0.5625rem] rounded-md px-2 text-[0.8125rem]',
     collapsed && 'justify-center',
     active ? 'bg-primary-soft font-semibold text-primary-soft-foreground' : !disabled && 'hover:bg-sidebar-accent',
     disabled && 'cursor-not-allowed opacity-45',
@@ -54,7 +54,7 @@ function GroupLabel({ collapsed, children }) {
   if (collapsed) {
     return <div className="mx-2 my-1.5 h-px bg-sidebar-border" />;
   }
-  return <div className="px-2 py-1 text-[11px] font-medium tracking-wide text-muted-foreground">{children}</div>;
+  return <div className="px-2 py-1 text-[0.6875rem] font-medium tracking-wide text-muted-foreground">{children}</div>;
 }
 
 export function AppSidebar({ apps, email, canCreateApps, initialCollapsed }) {
@@ -75,17 +75,17 @@ export function AppSidebar({ apps, email, canCreateApps, initialCollapsed }) {
     <aside
       className={cn(
         'sticky top-0 z-10 flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground',
-        collapsed ? 'w-[60px]' : 'w-[244px]',
+        collapsed ? 'w-[3.75rem]' : 'w-[15.25rem]',
       )}
     >
-      <div className={cn('flex h-[52px] shrink-0 items-center gap-2', collapsed ? 'justify-center' : 'px-3.5')}>
+      <div className={cn('flex h-[3.25rem] shrink-0 items-center gap-2', collapsed ? 'justify-center' : 'px-3.5')}>
         {collapsed ? (
           <button
             type="button"
             onClick={toggle}
             title="Expand menu"
             aria-label="Expand menu"
-            className="flex size-[26px] items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
+            className="flex size-[1.625rem] items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
           >
             <PanelLeft className="size-4" />
           </button>
@@ -94,14 +94,14 @@ export function AppSidebar({ apps, email, canCreateApps, initialCollapsed }) {
             <Logo />
             <span className="flex min-w-0 flex-1 items-baseline gap-1">
               <b className="font-bold tracking-tight text-foreground">Renvix</b>
-              <span className="truncate text-[13px] text-muted-foreground">Apps Platform</span>
+              <span className="truncate text-[0.8125rem] text-muted-foreground">Apps Platform</span>
             </span>
             <button
               type="button"
               onClick={toggle}
               title="Collapse menu"
               aria-label="Collapse menu"
-              className="flex size-[26px] shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
+              className="flex size-[1.625rem] shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
             >
               <PanelLeft className="size-4" />
             </button>

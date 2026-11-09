@@ -18,7 +18,7 @@ export default async function GeneralSettingsPage({ params }) {
       <Card>
         <CardHeader title="App" description="How the SDK, scripts and URLs refer to this app. These never change." />
         <CardBody>
-          <dl className="grid grid-cols-[max-content_1fr] items-center gap-x-8 gap-y-2.5 text-[13px]">
+          <dl className="grid grid-cols-[max-content_1fr] items-center gap-x-8 gap-y-2.5 text-[0.8125rem]">
             <dt className="text-muted-foreground">Slug</dt>
             <dd className="font-mono text-xs font-medium">{app.slug}</dd>
             <dt className="text-muted-foreground">App ID</dt>

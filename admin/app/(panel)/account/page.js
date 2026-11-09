@@ -46,11 +46,11 @@ function describeBrowser(userAgent) {
 
 // Cells are built here, on the server, so the client table receives no functions
 const COLUMNS = [
-  { key: 'browser', header: 'Browser', width: 'minmax(220px,1.6fr)' },
-  { key: 'ip', header: 'IP', width: '150px', mono: true },
-  { key: 'createdAt', header: 'Signed in', width: 'minmax(150px,1fr)' },
-  { key: 'lastUsedAt', header: 'Last active', width: 'minmax(150px,1fr)' },
-  { key: 'expiresAt', header: 'Ends at the latest', width: 'minmax(150px,1fr)' },
+  { key: 'browser', header: 'Browser', width: 'minmax(13.75rem,1.6fr)' },
+  { key: 'ip', header: 'IP', width: '9.375rem', mono: true },
+  { key: 'createdAt', header: 'Signed in', width: 'minmax(9.375rem,1fr)' },
+  { key: 'lastUsedAt', header: 'Last active', width: 'minmax(9.375rem,1fr)' },
+  { key: 'expiresAt', header: 'Ends at the latest', width: 'minmax(9.375rem,1fr)' },
 ];
 
 export default async function AccountPage() {

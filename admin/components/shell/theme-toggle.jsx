@@ -22,7 +22,7 @@ export function ThemeToggle() {
     value,
     label,
     title: `${label} theme`,
-    icon: <Icon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />,
+    icon: <Icon className="mr-1 inline size-3.5 align-[-0.125rem]" aria-hidden />,
   }));
 
   return <Segmented options={options} value={mounted ? theme : ''} onValueChange={setTheme} fill />;

@@ -20,7 +20,7 @@ export function AccountMenu({ email }) {
       >
         {email[0].toUpperCase()}
       </MenuTrigger>
-      <MenuContent side="right" align="end" sideOffset={10} className="w-[220px]">
+      <MenuContent side="right" align="end" sideOffset={10} className="w-[13.75rem]">
         <div className="truncate px-2 pb-1.5 pt-1 text-xs text-muted-foreground" title={email}>
           {email}
         </div>

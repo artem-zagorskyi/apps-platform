@@ -27,11 +27,11 @@ const DELIVERY_STATUS = {
 };
 
 const COLUMNS = [
-  { key: 'type', header: 'Type', width: 'minmax(170px,1fr)', mono: true },
-  { key: 'status', header: 'Status', width: '110px' },
-  { key: 'http', header: 'HTTP', width: '64px', mono: true },
-  { key: 'attempts', header: 'Attempts', width: '72px', align: 'right' },
-  { key: 'createdAt', header: 'Created', width: '150px' },
+  { key: 'type', header: 'Type', width: 'minmax(10.625rem,1fr)', mono: true },
+  { key: 'status', header: 'Status', width: '6.875rem' },
+  { key: 'http', header: 'HTTP', width: '4rem', mono: true },
+  { key: 'attempts', header: 'Attempts', width: '4.5rem', align: 'right' },
+  { key: 'createdAt', header: 'Created', width: '9.375rem' },
 ];
 
 const count = (n) => n.toLocaleString('en-US');
@@ -207,7 +207,7 @@ export function WebhooksPanel({ overview, actions }) {
               {testing ? 'Sending…' : 'Send test notification'}
             </Button>
             {test && (
-              <span role="status" className="inline-flex items-center gap-2 text-[13px]">
+              <span role="status" className="inline-flex items-center gap-2 text-[0.8125rem]">
                 <Badge tone={test.ok ? 'success' : 'destructive'} className="font-mono">
                   {test.httpStatus ? `HTTP ${test.httpStatus}` : 'No response'}
                 </Badge>

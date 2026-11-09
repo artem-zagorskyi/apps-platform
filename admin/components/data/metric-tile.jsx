@@ -11,10 +11,10 @@ export function MetricTile({ label, value, delta, sub, definition, spark, loadin
   if (loading) return <div className={cn("flex flex-col gap-2 rounded-lg border border-border bg-card px-3.5 py-3", className)}><Skeleton className="h-3 w-24" /><Skeleton className="h-6 w-20" /><Skeleton className="h-3 w-32" /></div>;
   const tone = delta?.tone === "good" ? "text-success" : delta?.tone === "bad" ? "text-destructive" : "text-muted-foreground";
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-card px-3.5 pb-3 pt-[11px]", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-card px-3.5 pb-3 pt-[0.6875rem]", className)}>
       <Tooltip content={definition}><span className="truncate text-xs font-medium text-muted-foreground">{label}</span></Tooltip>
       <div className="flex items-end justify-between gap-2">
-        <span className="text-[22px] font-semibold leading-[1.05] tracking-[-0.015em] tabular-nums">{value}</span>
+        <span className="text-[1.375rem] font-semibold leading-[1.05] tracking-[-0.015em] tabular-nums">{value}</span>
         {spark}
       </div>
       <span className="flex items-center gap-1 truncate text-xs tabular-nums">

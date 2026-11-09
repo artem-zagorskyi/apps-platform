@@ -7,7 +7,7 @@ import { num } from "@/lib/format";
  */
 export function CohortHeatmap({ columns, rows, firstHeader = "Cohort", sizeHeader = "Users", thresholds = [20, 35, 45, 55, 65], minWidth = 640 }) {
   const level = (v) => thresholds.reduce((l, t) => (v >= t ? l + 1 : l), 0);
-  const tpl = `130px 80px repeat(${columns.length}, minmax(56px,1fr))`;
+  const tpl = `8.125rem 5rem repeat(${columns.length}, minmax(3.5rem,1fr))`;
   return (
     <div className="overflow-x-auto">
       <div style={{ minWidth }}>
@@ -15,8 +15,8 @@ export function CohortHeatmap({ columns, rows, firstHeader = "Cohort", sizeHeade
           <span>{firstHeader}</span><span className="pr-3 text-right">{sizeHeader}</span>{columns.map((c) => <span key={c} className="text-center">{c}</span>)}
         </div>
         {rows.map((r) => (
-          <div key={r.label} className="grid h-[34px] items-center border-t border-border pl-4 pr-3 text-xs tabular-nums" style={{ gridTemplateColumns: tpl }}>
-            <span className="text-[13px] font-medium">{r.label}</span><span className="pr-3 text-right text-muted-foreground">{num(r.size)}</span>
+          <div key={r.label} className="grid h-[2.125rem] items-center border-t border-border pl-4 pr-3 text-xs tabular-nums" style={{ gridTemplateColumns: tpl }}>
+            <span className="text-[0.8125rem] font-medium">{r.label}</span><span className="pr-3 text-right text-muted-foreground">{num(r.size)}</span>
             {r.values.map((v, i) => {
               const l = v == null ? -1 : level(v);
               return (

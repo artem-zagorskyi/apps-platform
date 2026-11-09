@@ -35,18 +35,18 @@ function limits(parameter) {
 }
 
 const PARAMETER_COLUMNS = [
-  { key: 'name', header: 'Name', width: 'minmax(180px,1.3fr)' },
-  { key: 'type', header: 'Type', width: '70px', mono: true },
-  { key: 'builtIn', header: 'Built-in', width: 'minmax(90px,0.8fr)', mono: true },
-  { key: 'limits', header: 'Allowed values', width: 'minmax(140px,1fr)' },
+  { key: 'name', header: 'Name', width: 'minmax(11.25rem,1.3fr)' },
+  { key: 'type', header: 'Type', width: '4.375rem', mono: true },
+  { key: 'builtIn', header: 'Built-in', width: 'minmax(5.625rem,0.8fr)', mono: true },
+  { key: 'limits', header: 'Allowed values', width: 'minmax(8.75rem,1fr)' },
 ];
 
 const HISTORY_COLUMNS = [
-  { key: 'version', header: 'Version', width: '64px', mono: true },
-  { key: 'uploadedAt', header: 'Uploaded', width: '150px' },
-  { key: 'uploadedBy', header: 'By', width: 'minmax(120px,0.8fr)' },
-  { key: 'summary', header: 'Changes', width: 'minmax(180px,1.4fr)' },
-  { key: 'current', header: '', width: '64px', align: 'right' },
+  { key: 'version', header: 'Version', width: '4rem', mono: true },
+  { key: 'uploadedAt', header: 'Uploaded', width: '9.375rem' },
+  { key: 'uploadedBy', header: 'By', width: 'minmax(7.5rem,0.8fr)' },
+  { key: 'summary', header: 'Changes', width: 'minmax(11.25rem,1.4fr)' },
+  { key: 'current', header: '', width: '4rem', align: 'right' },
 ];
 
 /**
@@ -77,7 +77,7 @@ export function ConfigPanel({ overview, configHref, actions }) {
           )}
         </span>
         {parameter.description && (
-          <span className="truncate text-[11px] text-muted-foreground">{parameter.description}</span>
+          <span className="truncate text-[0.6875rem] text-muted-foreground">{parameter.description}</span>
         )}
       </span>
     ),
@@ -114,7 +114,7 @@ export function ConfigPanel({ overview, configHref, actions }) {
         action={
           <Link
             href={configHref}
-            className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-soft-foreground hover:underline"
+            className="inline-flex shrink-0 items-center gap-1 text-[0.8125rem] font-medium text-primary-soft-foreground hover:underline"
           >
             Config &amp; experiments
             <ArrowUpRight className="size-3.5" />
@@ -193,7 +193,7 @@ export function ConfigPanel({ overview, configHref, actions }) {
             <>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-semibold tabular-nums">{holdout.percent}%</span>
-                <span className="text-[13px] text-muted-foreground">of users</span>
+                <span className="text-[0.8125rem] text-muted-foreground">of users</span>
               </div>
               <Callout tone="warning" title="Can't change while experiments run">
                 A new holdout would move people in or out of running experiments and spoil their results. Stop these
@@ -203,7 +203,7 @@ export function ConfigPanel({ overview, configHref, actions }) {
                 {holdout.runningExperiments.map((key) => (
                   <li
                     key={key}
-                    className="flex items-center gap-2 border-t border-border py-2 text-[13px] first:border-t-0"
+                    className="flex items-center gap-2 border-t border-border py-2 text-[0.8125rem] first:border-t-0"
                   >
                     <Badge tone="primary" dot size="sm">
                       running
@@ -233,7 +233,7 @@ export function ConfigPanel({ overview, configHref, actions }) {
                   className="w-24 tabular-nums"
                   aria-label="Holdout percent"
                 />
-                <span className="text-[13px] text-muted-foreground">% of users, 0 to 50</span>
+                <span className="text-[0.8125rem] text-muted-foreground">% of users, 0 to 50</span>
               </div>
             </ActionForm>
           )}

@@ -18,7 +18,7 @@ export default async function PlatformsSettingsPage({ params }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[13px] text-muted-foreground text-pretty">
+      <p className="text-[0.8125rem] text-muted-foreground text-pretty">
         Store purchases and notifications are matched to the app by these ids. Set them before the first release: an app
         in the store keeps its id for good.
       </p>

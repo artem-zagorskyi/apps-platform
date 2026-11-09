@@ -3,11 +3,11 @@ import { SourceTag } from "@/components/data/source-tag";
 /** Page title + subtitle (+ source tag) + right-side filters, and optional tabs underneath. */
 export function PageHeader({ title, subtitle, source, actions, tabs }) {
   return (
-    <header className="border-b border-border px-6 pt-[18px]">
+    <header className="border-b border-border px-6 pt-[1.125rem]">
       <div className="flex flex-wrap items-end justify-between gap-4 pb-3.5 data-[tabs=true]:pb-0" data-tabs={!!tabs}>
-        <div className="flex min-w-0 flex-col gap-[3px]">
+        <div className="flex min-w-0 flex-col gap-[0.1875rem]">
           <h1 className="text-xl font-semibold tracking-[-0.015em]">{title}</h1>
-          {(subtitle || source) && <div className="flex items-center gap-2 text-[13px] text-muted-foreground">{subtitle}{source && <SourceTag {...source} />}</div>}
+          {(subtitle || source) && <div className="flex items-center gap-2 text-[0.8125rem] text-muted-foreground">{subtitle}{source && <SourceTag {...source} />}</div>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-1.5">{actions}</div>}
       </div>
