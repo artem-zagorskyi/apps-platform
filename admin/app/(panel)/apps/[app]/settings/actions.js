@@ -119,3 +119,41 @@ export async function newConsentVersion(slug, reason) {
     refreshConsents(slug);
   });
 }
+
+function refreshWebhooks(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/webhooks`);
+}
+
+// Returns { secret, requeued }: a secret only when the endpoint is new
+export async function setWebhookUrl(slug, _previous, formData) {
+  return runAction(async () => {
+    const result = await adminApi(`${appPath(slug)}/webhook`, {
+      method: 'PUT',
+      body: { url: String(formData.get('url') ?? '').trim() },
+    });
+    refreshWebhooks(slug);
+    return result;
+  });
+}
+
+// Returns { secret } once
+export async function rotateWebhookSecret(slug) {
+  return runAction(async () => {
+    const result = await adminApi(`${appPath(slug)}/webhook/rotate-secret`, { method: 'POST' });
+    refreshWebhooks(slug);
+    return result;
+  });
+}
+
+// Returns { ok, httpStatus, ms, error }; nothing is stored
+export async function sendTestWebhook(slug) {
+  return runAction(() => adminApi(`${appPath(slug)}/webhook/test`, { method: 'POST' }));
+}
+
+// Called from the confirmation dialog with the reason typed there
+export async function removeWebhookUrl(slug, reason) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/webhook`, { method: 'DELETE', body: { reason } });
+    refreshWebhooks(slug);
+  });
+}

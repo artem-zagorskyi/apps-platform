@@ -25,3 +25,4 @@ async function readApp(slug, suffix = '') {
 export const getApp = cache((slug) => readApp(slug));
 export const getSignInSettings = cache((slug) => readApp(slug, '/sign-in'));
 export const getConsentSettings = cache((slug) => readApp(slug, '/consent-policy'));
+export const getWebhookSettings = cache((slug) => readApp(slug, '/webhook'));

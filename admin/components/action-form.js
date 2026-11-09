@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 // A form bound to a server action that returns { ok } or { error }.
 // Errors stay under the form; success shows a toast.
 // inline: the controls and the button share one row.
+// onSuccess(state): called once per successful submit, e.g. to show returned data.
 export function ActionForm({
   action,
   submitLabel,
@@ -15,6 +16,7 @@ export function ActionForm({
   successMessage = 'Saved',
   variant = 'default',
   inline = false,
+  onSuccess,
   className,
   children,
 }) {
@@ -27,8 +29,9 @@ export function ActionForm({
     if (state?.ok && announced.current !== state) {
       announced.current = state;
       toast.add({ title: successMessage });
+      onSuccess?.(state);
     }
-  }, [state, toast, successMessage]);
+  }, [state, toast, successMessage, onSuccess]);
 
   const button = (
     <Button type="submit" variant={variant} disabled={pending}>
