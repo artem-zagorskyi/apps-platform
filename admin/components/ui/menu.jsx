@@ -6,10 +6,10 @@ export const Menu = M.Root;
 export const MenuTrigger = M.Trigger;
 export const MenuSeparator = () => <M.Separator className="mx-0.5 my-1 h-px bg-border" />;
 
-export function MenuContent({ className, align = "start", sideOffset = 4, children }) {
+export function MenuContent({ className, side = "bottom", align = "start", sideOffset = 4, children }) {
   return (
     <M.Portal>
-      <M.Positioner align={align} sideOffset={sideOffset} className="z-50">
+      <M.Positioner side={side} align={align} sideOffset={sideOffset} className="z-50">
         <M.Popup className={cn("min-w-[200px] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg outline-none transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0", className)}>
           {children}
         </M.Popup>

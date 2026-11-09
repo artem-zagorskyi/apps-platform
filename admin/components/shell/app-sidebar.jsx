@@ -7,6 +7,7 @@ import { LogOut, PanelLeft } from 'lucide-react';
 import { signOut } from '@/app/(panel)/actions';
 import { ALL_APPS, APP_SECTION_GROUPS, PLATFORM_ITEMS, SIDEBAR_COOKIE, appSectionHref } from '@/lib/nav';
 import { cn } from '@/lib/utils';
+import { AccountMenu } from './account-menu';
 import { AppSwitcher } from './app-switcher';
 import { Logo } from './logo';
 import { ThemeToggle } from './theme-toggle';
@@ -38,7 +39,12 @@ function NavItem({ href, icon: Icon, label, active, disabled, collapsed }) {
   }
 
   return (
-    <Link href={href} className={className} title={collapsed ? label : undefined} aria-current={active ? 'page' : undefined}>
+    <Link
+      href={href}
+      className={className}
+      title={collapsed ? label : undefined}
+      aria-current={active ? 'page' : undefined}
+    >
       {content}
     </Link>
   );
@@ -79,9 +85,9 @@ export function AppSidebar({ apps, email, canCreateApps, initialCollapsed }) {
             onClick={toggle}
             title="Expand menu"
             aria-label="Expand menu"
-            className="rounded-md p-1 hover:bg-sidebar-accent"
+            className="flex size-[26px] items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent"
           >
-            <Logo />
+            <PanelLeft className="size-4" />
           </button>
         ) : (
           <>
@@ -133,17 +139,21 @@ export function AppSidebar({ apps, email, canCreateApps, initialCollapsed }) {
         </div>
       </nav>
 
-      <div className="flex shrink-0 flex-col gap-2.5 border-t border-sidebar-border p-2.5">
-        <ThemeToggle collapsed={collapsed} />
-        <div className={cn('flex items-center gap-2 px-0.5', collapsed && 'flex-col')}>
-          <Link
-            href="/account"
-            title={collapsed ? `${email} · My account` : 'My account'}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary-soft-foreground"
-          >
-            {email[0].toUpperCase()}
-          </Link>
-          {!collapsed && (
+      {collapsed ? (
+        <div className="flex shrink-0 justify-center border-t border-sidebar-border py-2.5">
+          <AccountMenu email={email} />
+        </div>
+      ) : (
+        <div className="flex shrink-0 flex-col gap-2.5 border-t border-sidebar-border p-2.5">
+          <ThemeToggle />
+          <div className="flex items-center gap-2 px-0.5">
+            <Link
+              href="/account"
+              title="My account"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary-soft-foreground"
+            >
+              {email[0].toUpperCase()}
+            </Link>
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-xs font-medium text-foreground" title={email}>
                 {email}
@@ -152,19 +162,19 @@ export function AppSidebar({ apps, email, canCreateApps, initialCollapsed }) {
                 My account
               </Link>
             </div>
-          )}
-          <form action={signOut}>
-            <button
-              type="submit"
-              title="Sign out"
-              aria-label="Sign out"
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-            >
-              <LogOut className="size-4" />
-            </button>
-          </form>
+            <form action={signOut}>
+              <button
+                type="submit"
+                title="Sign out"
+                aria-label="Sign out"
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }
