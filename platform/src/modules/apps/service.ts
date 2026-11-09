@@ -10,6 +10,7 @@ import {
   identityKeys,
 } from './schema.js';
 import type { JWK } from 'jose';
+import { AppError } from '../../core/errors.js';
 
 // True if the app exists, is active and has this platform registered
 export async function isAppPlatformActive(
@@ -131,4 +132,36 @@ export async function listBundleIds(platform: Platform): Promise<{ appId: string
     .select({ appId: appPlatforms.appId, bundleId: appPlatforms.bundleId })
     .from(appPlatforms)
     .where(eq(appPlatforms.platform, platform));
+}
+
+type AppStatus = (typeof apps.$inferSelect)['status'];
+
+const APP_STATUS_CACHE_MS = 60_000;
+const appStatuses = new Map<string, { status: AppStatus | null; loadedAt: number }>();
+
+// Status of an app, cached for a minute: every request of an app needs it.
+// null when there is no such app.
+export async function getAppStatus(appId: string): Promise<AppStatus | null> {
+  const cached = appStatuses.get(appId);
+  if (cached && Date.now() - cached.loadedAt < APP_STATUS_CACHE_MS) {
+    return cached.status;
+  }
+
+  const [row] = await db.select({ status: apps.status }).from(apps).where(eq(apps.id, appId));
+  const status = row?.status ?? null;
+  appStatuses.set(appId, { status, loadedAt: Date.now() });
+  return status;
+}
+
+// Applies a status change in this process at once; other processes see it within a minute
+export function forgetAppStatus(appId: string): void {
+  appStatuses.delete(appId);
+}
+
+// A disabled app is stopped for everyone: no new tokens and no requests.
+// Its data stays, and enabling the app brings everything back.
+export async function assertAppNotDisabled(appId: string): Promise<void> {
+  if ((await getAppStatus(appId)) === 'disabled') {
+    throw new AppError(403, 'app_disabled', 'This app is disabled');
+  }
 }

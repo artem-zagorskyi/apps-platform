@@ -9,6 +9,7 @@ import { writeAudit, type Actor } from './audit.js';
 import { ALL_ROLES, hasAppRole } from './roles.js';
 import type { AdminRole } from './schema.js';
 import type { AdminSession } from './service.js';
+import { forgetAppStatus } from '../apps/service.js';
 
 // Lowercase letters, digits and dashes; starts with a letter, 3 to 40 long
 const SLUG_PATTERN = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
@@ -126,22 +127,30 @@ export async function updateApp(
   }
 
   return db.transaction(async (tx) => {
-    const [updated] = await tx.update(apps).set(after).where(eq(apps.id, app.id)).returning(appColumns);
-    await writeAudit(
-      {
-        adminId: actor.adminId,
-        action: 'app.update',
-        appId: app.id,
-        targetType: 'app',
-        targetId: app.id,
-        reason: changes.reason,
-        before,
-        after,
-        ip: actor.ip,
-      },
-      tx,
-    );
-    return updated!;
+      const updated = await db.transaction(async (tx) => {
+      const [row] = await tx.update(apps).set(after).where(eq(apps.id, app.id)).returning(appColumns);
+      await writeAudit(
+        {
+          adminId: actor.adminId,
+          action: 'app.update',
+          appId: app.id,
+          targetType: 'app',
+          targetId: app.id,
+          reason: changes.reason,
+          before,
+          after,
+          ip: actor.ip,
+        },
+        tx,
+      );
+      return row!;
+    });
+  
+    // Takes effect for the app's requests at once, not after the cache expires
+    if (before.status !== after.status) {
+      forgetAppStatus(app.id);
+    }
+    return updated; 
   });
 }
 

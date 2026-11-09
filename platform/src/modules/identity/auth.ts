@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import { AppError } from '../../core/errors.js';
 import { type AccessTokenClaims, verifyAccessToken } from './tokens.js';
+import { assertAppNotDisabled } from '../apps/service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -20,13 +21,18 @@ export async function requireAuth(request: FastifyRequest): Promise<void> {
     throw new AppError(401, 'unauthorized', 'Missing or malformed access token', 'no_bearer_token');
   }
 
+  let claims: AccessTokenClaims;
   try {
-    request.auth = await verifyAccessToken(token);
+    claims = await verifyAccessToken(token);
   } catch (err) {
     // jose errors carry a code such as ERR_JWT_EXPIRED; schema errors do not
     const reason = (err as { code?: string }).code ?? 'invalid_claims';
     throw new AppError(401, 'unauthorized', 'Access token is invalid or expired', reason);
   }
+
+  // A disabled app is stopped for everyone, even with a valid token
+  await assertAppNotDisabled(claims.appId);
+  request.auth = claims;
 }
 
 // Claims of the current request. Only valid on routes with requireAuth.

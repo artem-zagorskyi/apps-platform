@@ -4,7 +4,7 @@ import { config } from '../../core/config.js';
 import { db, type Tx } from '../../core/db.js';
 import { AppError, isUniqueViolation } from '../../core/errors.js';
 import type { Platform } from '../apps/schema.js';
-import { isAppPlatformActive } from '../apps/service.js';
+import { assertAppNotDisabled, isAppPlatformActive } from '../apps/service.js';
 import { authIdentities, installations, sessions, users } from './schema.js';
 import {
   type AccessTokenClaims,
@@ -13,6 +13,7 @@ import {
   signAccessToken,
 } from './tokens.js';
 import type { authProviderEnum } from '../apps/schema.js';
+
 
 export interface AnonymousSignUpInput {
   appId: string;
@@ -89,6 +90,8 @@ export async function issueTokenPair(
 
 // First launch: create a user, the installation and a session in one transaction
 export async function signUpAnonymous(input: AnonymousSignUpInput): Promise<TokenPair> {
+  await assertAppNotDisabled(input.appId);
+
   if (!(await isAppPlatformActive(input.appId, input.platform))) {
     throw new AppError(400, 'unknown_app', 'App is unknown, disabled or not available on this platform');
   }
@@ -149,6 +152,17 @@ export async function refreshSession(refreshToken: string): Promise<TokenPair> {
   const tokenHash = hashRefreshToken(refreshToken);
   const now = new Date();
   const graceMs = config.REFRESH_REUSE_GRACE_SECONDS * 1000;
+
+  // A disabled app gets no new tokens. Checked before anything changes, so
+  // the session simply continues once the app is enabled again.
+  const [current] = await db
+    .select({ appId: installations.appId })
+    .from(sessions)
+    .innerJoin(installations, eq(installations.id, sessions.installationId))
+    .where(eq(sessions.tokenHash, tokenHash));
+  if (current) {
+    await assertAppNotDisabled(current.appId);
+  }
 
   const outcome = await db.transaction(async (tx): Promise<RefreshOutcome> => {
     // Lock the session row so two parallel refreshes cannot both rotate it
