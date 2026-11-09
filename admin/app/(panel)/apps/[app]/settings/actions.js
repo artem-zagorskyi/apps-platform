@@ -92,3 +92,30 @@ export async function revokeBackendKey(slug, kid, reason) {
     refreshSignIn(slug);
   });
 }
+
+function refreshConsents(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/consents`);
+}
+
+// Creates the app's policy if there is none, otherwise changes its mode and
+// reprompt interval (which does not ask anyone again)
+export async function saveConsentPolicy(slug, _previous, formData) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/consent-policy`, {
+      method: 'PUT',
+      body: {
+        mode: String(formData.get('mode') ?? ''),
+        repromptAfterDays: Number(formData.get('repromptAfterDays')),
+      },
+    });
+    refreshConsents(slug);
+  });
+}
+
+// Called from the confirmation dialog with the reason typed there
+export async function newConsentVersion(slug, reason) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/consent-policy/new-version`, { method: 'POST', body: { reason } });
+    refreshConsents(slug);
+  });
+}
