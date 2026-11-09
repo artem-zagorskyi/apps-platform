@@ -52,7 +52,7 @@ export default async function AccountPage() {
                     <span className="truncate" title={item.userAgent ?? undefined}>
                       {item.userAgent ?? 'Unknown'}
                     </span>
-                    {item.current && <Badge variant="secondary">This one</Badge>}
+                    {item.current && <Badge tone="primary" size="sm">This one</Badge>}
                   </div>
                 </TableCell>
                 <TableCell className="font-mono text-xs">{item.ip ?? '—'}</TableCell>

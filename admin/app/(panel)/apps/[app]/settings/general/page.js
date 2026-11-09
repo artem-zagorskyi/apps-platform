@@ -1,9 +1,9 @@
 import { ActionForm } from '@/components/action-form';
 import { Time } from '@/components/time';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { getApp } from '@/lib/apps';
 import { renameApp, setAppStatus } from '../actions';
+import { StatusBadge } from '@/components/data/status-badge';
 
 export default async function GeneralSettingsPage({ params }) {
   const { app: slug } = await params;
@@ -18,7 +18,7 @@ export default async function GeneralSettingsPage({ params }) {
         <dd className="font-mono">{app.id}</dd>
         <dt className="text-muted-foreground">Status</dt>
         <dd>
-          <Badge variant={app.status === 'active' ? 'secondary' : 'destructive'}>{app.status}</Badge>
+          <StatusBadge status={app.status} />
         </dd>
         <dt className="text-muted-foreground">Created</dt>
         <dd>

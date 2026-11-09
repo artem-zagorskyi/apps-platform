@@ -6,7 +6,6 @@ import { requireSession } from '@/lib/session';
 export default async function PanelLayout({ children }) {
   const session = await requireSession();
   const apps = await getVisibleApps();
-
   const canCreateApps = session.roles.some((grant) => grant.role === 'owner' && grant.appId === null);
 
   return (
