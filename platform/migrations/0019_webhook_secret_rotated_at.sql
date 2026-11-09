@@ -1,0 +1,1 @@
+ALTER TABLE "webhooks"."endpoints" ADD COLUMN "secret_rotated_at" timestamp with time zone DEFAULT now() NOT NULL;

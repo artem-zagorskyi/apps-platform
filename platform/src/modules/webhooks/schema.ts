@@ -13,6 +13,8 @@ export const endpoints = webhooksSchema.table('endpoints', {
   url: text('url').notNull(),
   // Signing secret, encrypted with DATA_ENCRYPTION_KEY
   secretEncrypted: text('secret_encrypted').notNull(),
+  // When the current signing secret was issued
+  secretRotatedAt: tz('secret_rotated_at').notNull().defaultNow(),
   createdAt: createdAt(),
   updatedAt: tz('updated_at').notNull().defaultNow(),
 });

@@ -134,6 +134,13 @@
       "when": 1794042144431,
       "tag": "0018_app_platforms_unique_bundle",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794240179007,
+      "tag": "0019_webhook_secret_rotated_at",
+      "breakpoints": true
     }
   ]
 }
