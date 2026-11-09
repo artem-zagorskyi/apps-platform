@@ -46,3 +46,49 @@ export async function setPlatform(slug, platform, _previous, formData) {
     refreshPanel();
   });
 }
+
+function refreshSignIn(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/sign-in`);
+}
+
+export async function addOAuthClient(slug, _previous, formData) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/oauth-clients`, {
+      method: 'POST',
+      body: {
+        provider: String(formData.get('provider') ?? ''),
+        platform: String(formData.get('platform') ?? ''),
+        clientId: String(formData.get('clientId') ?? '').trim(),
+      },
+    });
+    refreshSignIn(slug);
+  });
+}
+
+// Called from the confirmation dialog
+export async function removeOAuthClient(slug, clientId) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/oauth-clients/${encodeURIComponent(clientId)}`, { method: 'DELETE' });
+    refreshSignIn(slug);
+  });
+}
+
+// Returns the private key once, for the form to show
+export async function createBackendKey(slug) {
+  return runAction(async () => {
+    const key = await adminApi(`${appPath(slug)}/identity-keys`, { method: 'POST' });
+    refreshSignIn(slug);
+    return key;
+  });
+}
+
+// Called from the confirmation dialog with the reason typed there
+export async function revokeBackendKey(slug, kid, reason) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/identity-keys/${encodeURIComponent(kid)}/revoke`, {
+      method: 'POST',
+      body: { reason },
+    });
+    refreshSignIn(slug);
+  });
+}

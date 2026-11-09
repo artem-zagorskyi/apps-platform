@@ -4,17 +4,19 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Compact select. items: [{ value, label }]
- * <Select label="Platform" value={v} onValueChange={setV} items={[...]} />
+ * Compact select. items: [{ value, label, disabled? }]
+ * Controlled: <Select value={v} onValueChange={setV} items={[...]} />
+ * In a form: <Select name="platform" defaultValue="android" items={[...]} /> submits like an input.
  * With label → filter-chip style ("Platform  Both ▾"), 30px.
  */
-export function Select({ label, items, value, onValueChange, placeholder, mono, className, triggerClassName }) {
-  const current = items.find((i) => i.value === value);
+export function Select({ label, items, value, defaultValue, onValueChange, name, required, disabled, placeholder, mono, className, triggerClassName, "aria-label": ariaLabel }) {
   return (
-    <S.Root value={value} onValueChange={onValueChange} items={items}>
-      <S.Trigger className={cn("inline-flex h-[30px] items-center gap-1.5 rounded-md border border-border bg-card pl-2.5 pr-2 text-[13px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40 data-[popup-open]:bg-accent", triggerClassName)}>
+    <S.Root value={value} defaultValue={defaultValue} onValueChange={onValueChange} items={items} name={name} required={required} disabled={disabled}>
+      <S.Trigger aria-label={ariaLabel} className={cn("inline-flex h-[30px] items-center gap-1.5 rounded-md border border-border bg-card pl-2.5 pr-2 text-[13px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40 data-[popup-open]:bg-accent data-[disabled]:opacity-50", triggerClassName)}>
         {label && <span className="text-muted-foreground">{label}</span>}
-        <S.Value className={cn("font-medium", mono && "font-mono text-xs")}>{current?.label ?? placeholder}</S.Value>
+        <S.Value className={cn("font-medium", mono && "font-mono text-xs")}>
+          {(selected) => items.find((i) => i.value === selected)?.label ?? placeholder}
+        </S.Value>
         <S.Icon><ChevronsUpDown className="size-3.5 text-muted-foreground" /></S.Icon>
       </S.Trigger>
       <S.Portal>
