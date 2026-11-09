@@ -1,12 +1,17 @@
+import Link from 'next/link';
 import { ActionForm } from '@/components/action-form';
 import { ConfirmActionButton } from '@/components/confirm-action-button';
 import { EmptyState } from '@/components/data/states';
 import { Callout } from '@/components/settings/shared/callout';
 import { CardSection, KeyValueList, SettingsCard, SettingsColumn } from '@/components/settings/shared/settings-card';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { getApp, getConsentSettings } from '@/lib/apps';
 import { cn } from '@/lib/utils';
 import { newConsentVersion, saveConsentPolicy } from '../actions';
+
+const STORE = { google_play: 'Google Play', app_store: 'App Store' };
+const storeNames = (stores) => stores.map((store) => STORE[store] ?? store).join(', ');
 
 const MODES = [
   {
@@ -15,14 +20,18 @@ const MODES = [
   },
   {
     value: 'consent_or_pay',
-    help: 'The person either agrees or buys an ad-free subscription. Needs a product in Subscriptions.',
+    help: 'The person either agrees or buys the paid alternative below; there is no free use after a refusal. Meant for apps with ads: the paid version must have every feature.',
   },
 ];
 
 export default async function ConsentsSettingsPage({ params }) {
   const { app: slug } = await params;
-  const [{ app }, { policy, activeInstallations }] = await Promise.all([getApp(slug), getConsentSettings(slug)]);
+  const [{ app }, { policy, activeInstallations, entitlements }] = await Promise.all([
+    getApp(slug),
+    getConsentSettings(slug),
+  ]);
   const people = `${activeInstallations.toLocaleString('en-US')} installation${activeInstallations === 1 ? '' : 's'} active in the last 30 days`;
+  const subscriptionsHref = `/apps/${encodeURIComponent(app.slug)}/settings/subscriptions`;
 
   if (!policy) {
     return (
@@ -48,6 +57,11 @@ export default async function ConsentsSettingsPage({ params }) {
     );
   }
 
+  const onSale = new Map(entitlements.map((entitlement) => [entitlement.key, entitlement.stores]));
+  const payStores = policy.payEntitlement ? onSale.get(policy.payEntitlement) : undefined;
+  const defaultEntitlement =
+    (payStores && policy.payEntitlement) ?? (onSale.has('ad_free') ? 'ad_free' : entitlements[0]?.key);
+
   return (
     <SettingsColumn>
       <Callout tone="info" title="One policy for everyone">
@@ -55,9 +69,19 @@ export default async function ConsentsSettingsPage({ params }) {
         same consent screen; nobody&apos;s country is guessed.
       </Callout>
 
+      {policy.mode === 'consent_or_pay' && !payStores && (
+        <Callout tone="warning" title={`${policy.payEntitlement} is not on sale`}>
+          No product on sale grants it, so the app works as optional until one does. Upload a catalog in{' '}
+          <Link href={subscriptionsHref} className="underline">
+            Subscriptions
+          </Link>{' '}
+          or choose another entitlement.
+        </Callout>
+      )}
+
       <SettingsCard
         title="Consent screen"
-        description="What happens on first launch. Changing it does not ask anyone again: use a new policy version for that."
+        description="What happens on first launch. A new mode publishes a new policy version and asks everyone again; the interval and the paid alternative do not."
       >
         <CardSection>
           <ActionForm
@@ -69,8 +93,9 @@ export default async function ConsentsSettingsPage({ params }) {
             <fieldset className="flex flex-col gap-1.5">
               <legend className="mb-1.5 text-xs font-medium">Mode</legend>
               {MODES.map((mode) => {
-                // No ad-free product can be sold yet: offered once Subscriptions is set up
-                const blocked = mode.value === 'consent_or_pay' && policy.mode !== 'consent_or_pay';
+                // Nothing to buy instead of consent until the catalog grants an entitlement
+                const blocked =
+                  mode.value === 'consent_or_pay' && entitlements.length === 0 && policy.mode !== 'consent_or_pay';
                 return (
                   <label
                     key={mode.value}
@@ -91,13 +116,35 @@ export default async function ConsentsSettingsPage({ params }) {
                       <span className="font-mono text-xs font-semibold">{mode.value}</span>
                       <span className="text-xs text-muted-foreground text-pretty">{mode.help}</span>
                       {blocked && (
-                        <span className="text-xs text-muted-foreground">Available once the app sells an ad-free product.</span>
+                        <span className="text-xs text-muted-foreground">
+                          Available once a product on sale grants an entitlement.
+                        </span>
                       )}
                     </span>
                   </label>
                 );
               })}
             </fieldset>
+
+            {entitlements.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium">Paid alternative</span>
+                <Select
+                  name="payEntitlement"
+                  aria-label="Paid alternative"
+                  defaultValue={defaultEntitlement}
+                  items={entitlements.map((entitlement) => ({
+                    value: entitlement.key,
+                    label: `${entitlement.key} · ${storeNames(entitlement.stores)}`,
+                  }))}
+                />
+                <span className="text-xs text-muted-foreground text-pretty">
+                  Used in consent_or_pay: an active purchase granting it replaces consent. On a platform whose store
+                  does not sell it, the app works as optional.
+                </span>
+              </div>
+            )}
+
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-medium">Ask again after a refusal</span>
               <span className="flex items-center gap-2">
@@ -124,13 +171,15 @@ export default async function ConsentsSettingsPage({ params }) {
         <KeyValueList
           items={[
             { label: 'Current version', value: policy.policyVersion, mono: true },
+            { label: 'Mode', value: policy.mode, mono: true },
+            ...(policy.mode === 'consent_or_pay'
+              ? [{ label: 'Paid alternative', value: policy.payEntitlement, mono: true }]
+              : []),
             { label: 'Applies to', value: people },
           ]}
         />
         <CardSection className="flex-row items-center justify-between">
-          <span className="text-xs text-muted-foreground">
-            Use it when the consent text or the purposes change.
-          </span>
+          <span className="text-xs text-muted-foreground">Use it when the consent text or the purposes change.</span>
           <ConfirmActionButton
             action={newConsentVersion.bind(null, app.slug)}
             label="Ask everyone again"

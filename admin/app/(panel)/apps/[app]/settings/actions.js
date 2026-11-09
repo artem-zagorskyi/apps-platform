@@ -97,15 +97,17 @@ function refreshConsents(slug) {
   revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/consents`);
 }
 
-// Creates the app's policy if there is none, otherwise changes its mode and
-// reprompt interval (which does not ask anyone again)
+// Creates the app's policy if there is none, otherwise changes it.
+// A new mode publishes a new policy version on the server.
 export async function saveConsentPolicy(slug, _previous, formData) {
   return runAction(async () => {
+    const payEntitlement = formData.get('payEntitlement');
     await adminApi(`${appPath(slug)}/consent-policy`, {
       method: 'PUT',
       body: {
         mode: String(formData.get('mode') ?? ''),
         repromptAfterDays: Number(formData.get('repromptAfterDays')),
+        payEntitlement: payEntitlement ? String(payEntitlement) : null,
       },
     });
     refreshConsents(slug);
