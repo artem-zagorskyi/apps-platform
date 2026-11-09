@@ -1,18 +1,21 @@
 import {
-  Activity,
   CreditCard,
-  KeyRound,
+  FlaskConical,
   LayoutDashboard,
   LifeBuoy,
+  ScrollText,
   Server,
-  Settings,
   ShieldCheck,
   SlidersHorizontal,
   Users,
+  Zap,
 } from 'lucide-react';
 
 // Stands for every app in URLs: /apps/all/overview
 export const ALL_APPS = 'all';
+
+// Remembers a collapsed sidebar. A cookie, so the server renders the right width at once.
+export const SIDEBAR_COOKIE = 'admin_sidebar';
 
 // Section map of the panel. App sections live under /apps/<slug>/<section>;
 // allApps marks the ones that also work as a summary over every app.
@@ -23,13 +26,13 @@ export const APP_SECTION_GROUPS = [
       { section: 'overview', label: 'Overview', icon: LayoutDashboard, allApps: true },
       { section: 'audience', label: 'Audience', icon: Users, allApps: true },
       { section: 'consents', label: 'Consents', icon: ShieldCheck, allApps: true },
-      { section: 'events', label: 'Events', icon: Activity, allApps: false },
+      { section: 'events', label: 'Events', icon: Zap, allApps: false },
     ],
   },
   {
     label: 'Product',
     items: [
-      { section: 'config', label: 'Config & experiments', icon: SlidersHorizontal, allApps: false },
+      { section: 'config', label: 'Config & experiments', icon: FlaskConical, allApps: false },
       { section: 'revenue', label: 'Subscriptions & revenue', icon: CreditCard, allApps: true },
     ],
   },
@@ -37,7 +40,7 @@ export const APP_SECTION_GROUPS = [
     label: 'Operations',
     items: [
       { section: 'support', label: 'Support', icon: LifeBuoy, allApps: false },
-      { section: 'settings', label: 'App settings', icon: Settings, allApps: false },
+      { section: 'settings', label: 'App settings', icon: SlidersHorizontal, allApps: false },
     ],
   },
 ];
@@ -45,7 +48,7 @@ export const APP_SECTION_GROUPS = [
 // Shared by every app, outside /apps
 export const PLATFORM_ITEMS = [
   { href: '/system', label: 'System', icon: Server },
-  { href: '/admins', label: 'Admins & audit log', icon: KeyRound },
+  { href: '/admins', label: 'Admins & audit log', icon: ScrollText },
 ];
 
 export function findSection(section) {

@@ -1,9 +1,17 @@
-// Stand-in for sections that are not built yet
-export function SectionPlaceholder({ title, note }) {
+import { Construction } from 'lucide-react';
+import { EmptyState } from '@/components/data/states';
+import { PageBody, PageHeader } from '@/components/shell/page-header';
+
+// A whole page for sections that are not built yet, or not available here
+export function SectionPlaceholder({ title, subtitle, emptyTitle = 'Not built yet', icon = Construction, children }) {
   return (
-    <div className="grid gap-2">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="text-muted-foreground">{note}</p>
-    </div>
+    <>
+      <PageHeader title={title} subtitle={subtitle} />
+      <PageBody>
+        <EmptyState icon={icon} title={emptyTitle}>
+          {children}
+        </EmptyState>
+      </PageBody>
+    </>
   );
 }
