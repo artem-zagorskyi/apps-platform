@@ -158,35 +158,70 @@ export async function removeWebhookUrl(slug, reason) {
   });
 }
 
-function refreshEvents(slug) {
-  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/events`);
-}
-
-// The file is parsed here, so a file that is not JSON gets a clear message
-function parsePlanFile(text) {
+// Uploaded files are parsed here, so a file that is not JSON gets a clear message
+function parseJsonFile(text) {
   try {
-    return { plan: JSON.parse(text) };
+    return { json: JSON.parse(text) };
   } catch (err) {
     return { error: `Not a JSON file: ${err.message}` };
   }
 }
 
+function refreshEvents(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/events`);
+}
+
 // What uploading the file would do; nothing is stored
 export async function checkTrackingPlan(slug, text) {
-  const file = parsePlanFile(text);
+  const file = parseJsonFile(text);
   if (file.error) return { error: file.error };
   return runAction(() =>
-    adminApi(`${appPath(slug)}/tracking-plan/check`, { method: 'POST', body: { plan: file.plan } }),
+    adminApi(`${appPath(slug)}/tracking-plan/check`, { method: 'POST', body: { plan: file.json } }),
   );
 }
 
 // Returns { status: 'created' | 'unchanged', version, events, summary }
 export async function uploadTrackingPlan(slug, text) {
-  const file = parsePlanFile(text);
+  const file = parseJsonFile(text);
   if (file.error) return { error: file.error };
   return runAction(async () => {
-    const result = await adminApi(`${appPath(slug)}/tracking-plan`, { method: 'POST', body: { plan: file.plan } });
+    const result = await adminApi(`${appPath(slug)}/tracking-plan`, { method: 'POST', body: { plan: file.json } });
     refreshEvents(slug);
     return result;
+  });
+}
+
+function refreshConfig(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/config`);
+}
+
+// What uploading the file would do; nothing is stored
+export async function checkParameterSchema(slug, text) {
+  const file = parseJsonFile(text);
+  if (file.error) return { error: file.error };
+  return runAction(() =>
+    adminApi(`${appPath(slug)}/config-schema/check`, { method: 'POST', body: { schema: file.json } }),
+  );
+}
+
+// Returns { status: 'created' | 'unchanged', version, parameters, summary }
+export async function uploadParameterSchema(slug, text) {
+  const file = parseJsonFile(text);
+  if (file.error) return { error: file.error };
+  return runAction(async () => {
+    const result = await adminApi(`${appPath(slug)}/config-schema`, { method: 'POST', body: { schema: file.json } });
+    refreshConfig(slug);
+    return result;
+  });
+}
+
+// Publishes a new config version with only the holdout changed
+export async function setHoldout(slug, _previous, formData) {
+  return runAction(async () => {
+    await adminApi(`${appPath(slug)}/holdout`, {
+      method: 'PUT',
+      body: { percent: Number(formData.get('percent')) },
+    });
+    refreshConfig(slug);
   });
 }
