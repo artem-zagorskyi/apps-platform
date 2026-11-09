@@ -157,3 +157,36 @@ export async function removeWebhookUrl(slug, reason) {
     refreshWebhooks(slug);
   });
 }
+
+function refreshEvents(slug) {
+  revalidatePath(`/apps/${encodeURIComponent(slug)}/settings/events`);
+}
+
+// The file is parsed here, so a file that is not JSON gets a clear message
+function parsePlanFile(text) {
+  try {
+    return { plan: JSON.parse(text) };
+  } catch (err) {
+    return { error: `Not a JSON file: ${err.message}` };
+  }
+}
+
+// What uploading the file would do; nothing is stored
+export async function checkTrackingPlan(slug, text) {
+  const file = parsePlanFile(text);
+  if (file.error) return { error: file.error };
+  return runAction(() =>
+    adminApi(`${appPath(slug)}/tracking-plan/check`, { method: 'POST', body: { plan: file.plan } }),
+  );
+}
+
+// Returns { status: 'created' | 'unchanged', version, events, summary }
+export async function uploadTrackingPlan(slug, text) {
+  const file = parsePlanFile(text);
+  if (file.error) return { error: file.error };
+  return runAction(async () => {
+    const result = await adminApi(`${appPath(slug)}/tracking-plan`, { method: 'POST', body: { plan: file.plan } });
+    refreshEvents(slug);
+    return result;
+  });
+}
