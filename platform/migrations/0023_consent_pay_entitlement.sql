@@ -1,0 +1,2 @@
+ALTER TABLE "apps"."consent_policies" ADD COLUMN "pay_entitlement" text;--> statement-breakpoint
+ALTER TABLE "apps"."consent_policies" ADD CONSTRAINT "consent_policies_pay_entitlement" CHECK ("apps"."consent_policies"."mode" <> 'consent_or_pay' or "apps"."consent_policies"."pay_entitlement" is not null);

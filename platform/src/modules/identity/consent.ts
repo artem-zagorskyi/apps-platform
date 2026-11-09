@@ -5,6 +5,8 @@ import { AppError } from '../../core/errors.js';
 import { type ConsentPolicy, getConsentPolicy } from '../apps/service.js';
 import { type consentPurposeEnum, consents, installations, users } from './schema.js';
 import type { AccessTokenClaims } from './tokens.js';
+import { consentPolicies, type Platform } from '../apps/schema.js';
+import { entitlementsOnSale, type Store } from '../billing/catalog.js';
 
 export type ConsentPurpose = (typeof consentPurposeEnum.enumValues)[number];
 
@@ -24,7 +26,8 @@ export interface ConsentDecision {
 }
 
 export interface ConsentState {
-  policy: { region: string; mode: ConsentPolicy['mode']; version: string };
+  // payEntitlement: in consent_or_pay, an active purchase of it replaces consent
+  policy: { region: string; mode: ConsentPolicy['mode']; version: string; payEntitlement: string | null };
   status: ConsentStatus;
   decisions: ConsentDecision[];
   // When the app may ask again after a refusal; null without refusals
@@ -62,6 +65,34 @@ async function loadPolicy(appId: string, log: FastifyBaseLogger): Promise<Consen
   const { policy, configured } = await getConsentPolicy(appId, null);
   if (!configured) log.warn({ appId }, 'no consent policy configured, asking everyone');
   return policy;
+}
+
+const STORE_OF: Record<Platform, Store> = { android: 'google_play', ios: 'app_store' };
+
+// consent_or_pay needs something to buy in this device's store. Without it the
+// choice would be "consent or leave", so the policy works as optional.
+async function withPaidAlternative(
+  auth: AccessTokenClaims,
+  policy: ConsentPolicy,
+  log: FastifyBaseLogger,
+): Promise<{ policy: ConsentPolicy; payEntitlement: string | null }> {
+  if (policy.mode !== 'consent_or_pay') return { policy, payEntitlement: null };
+
+  const [row] = await db
+    .select({ entitlement: consentPolicies.payEntitlement })
+    .from(consentPolicies)
+    .where(and(eq(consentPolicies.appId, auth.appId), eq(consentPolicies.region, policy.region)));
+  const entitlement = row?.entitlement ?? null;
+  const stores = entitlement ? (await entitlementsOnSale(auth.appId)).get(entitlement) : undefined;
+
+  if (entitlement && stores?.includes(STORE_OF[auth.platform])) {
+    return { policy, payEntitlement: entitlement };
+  }
+  log.warn(
+    { appId: auth.appId, entitlement, platform: auth.platform },
+    'consent_or_pay without a product on sale, treated as optional',
+  );
+  return { policy: { ...policy, mode: 'optional' }, payEntitlement: null };
 }
 
 // The latest decision per purpose, by the time it was made
@@ -122,11 +153,11 @@ export async function getConsentState(
   log: FastifyBaseLogger,
 ): Promise<ConsentState> {
   await requireOwner(auth);
-  const policy = await loadPolicy(auth.appId, log);
+  const { policy, payEntitlement } = await withPaidAlternative(auth, await loadPolicy(auth.appId, log), log);
   const decisions = await latestDecisions(auth.userId);
 
   return {
-    policy: { region: policy.region, mode: policy.mode, version: policy.policyVersion },
+    policy: { region: policy.region, mode: policy.mode, version: policy.policyVersion, payEntitlement },
     decisions,
     ...evaluate(policy, decisions),
   };

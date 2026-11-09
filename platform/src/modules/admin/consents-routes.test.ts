@@ -8,6 +8,7 @@ import { db, pool } from '../../core/db.js';
 import { getConsentPolicy } from '../apps/service.js';
 import { nextPolicyVersion } from './consents-service.js';
 import { auditLog } from './schema.js';
+import { products } from '../billing/schema.js';
 
 const NOW = new Date('2026-11-09T10:00:00Z');
 
@@ -46,25 +47,72 @@ describe('nextPolicyVersion', () => {
 });
 
 describe('consent policy', () => {
-  it('has none until saved, then changes without a new version', async () => {
+  it('has none until saved, then changes the interval without a new version', async () => {
     const token = await signIn(await createTestAdmin());
     const app = await createApp(token);
     const url = `/apps/${app.slug}/consent-policy`;
 
-    expect((await authed('GET', url, token)).json()).toEqual({ policy: null, activeInstallations: 0 });
+    expect((await authed('GET', url, token)).json()).toEqual({ policy: null, activeInstallations: 0, entitlements: [] });
 
     const created = await authed('PUT', url, token, { mode: 'optional', repromptAfterDays: 180 });
-    expect(created.json().policy).toMatchObject({ mode: 'optional', policyVersion: '2026-11-09', repromptAfterDays: 180 });
-
-    const changed = await authed('PUT', url, token, { mode: 'consent_or_pay', repromptAfterDays: 90 });
-    expect(changed.json().policy).toMatchObject({
-      mode: 'consent_or_pay',
+    expect(created.json().policy).toMatchObject({
+      mode: 'optional',
       policyVersion: '2026-11-09',
-      repromptAfterDays: 90,
+      repromptAfterDays: 180,
+      payEntitlement: null,
     });
+
+    const changed = await authed('PUT', url, token, { mode: 'optional', repromptAfterDays: 90 });
+    expect(changed.json().policy).toMatchObject({ policyVersion: '2026-11-09', repromptAfterDays: 90 });
 
     expect((await authed('PUT', url, token, { mode: 'none', repromptAfterDays: 180 })).statusCode).toBe(400);
     expect((await authed('PUT', url, token, { mode: 'optional', repromptAfterDays: 10 })).statusCode).toBe(400);
+  });
+
+  it('offers consent_or_pay only with an entitlement on sale, as a new version', async () => {
+    const token = await signIn(await createTestAdmin());
+    const app = await createApp(token);
+    const url = `/apps/${app.slug}/consent-policy`;
+    await authed('PUT', url, token, { mode: 'optional', repromptAfterDays: 180 });
+
+    const nothingToBuy = await authed('PUT', url, token, {
+      mode: 'consent_or_pay',
+      repromptAfterDays: 180,
+      payEntitlement: 'ad_free',
+    });
+    expect(nothingToBuy.statusCode).toBe(409);
+    expect(nothingToBuy.json().error).toBe('entitlement_not_on_sale');
+
+    await db.insert(products).values({
+      appId: app.id,
+      store: 'google_play',
+      productId: 'premium_monthly',
+      kind: 'subscription',
+      entitlements: ['ad_free', 'premium'],
+    });
+    expect((await authed('GET', url, token)).json().entitlements).toEqual([
+      { key: 'ad_free', stores: ['google_play'] },
+      { key: 'premium', stores: ['google_play'] },
+    ]);
+
+    const paid = await authed('PUT', url, token, {
+      mode: 'consent_or_pay',
+      repromptAfterDays: 180,
+      payEntitlement: 'ad_free',
+    });
+    expect(paid.json().policy).toMatchObject({
+      mode: 'consent_or_pay',
+      payEntitlement: 'ad_free',
+      policyVersion: '2026-11-09-2',
+    });
+
+    // Back to optional: another new version, the entitlement is kept for later
+    const back = await authed('PUT', url, token, { mode: 'optional', repromptAfterDays: 180 });
+    expect(back.json().policy).toMatchObject({
+      mode: 'optional',
+      payEntitlement: 'ad_free',
+      policyVersion: '2026-11-09-3',
+    });
   });
 
   it('is the policy for every country', async () => {

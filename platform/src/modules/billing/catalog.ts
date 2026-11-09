@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, type Tx } from '../../core/db.js';
 import { AppError } from '../../core/errors.js';
@@ -373,4 +373,24 @@ export async function getCatalogOverview(appId: string, now = new Date()) {
       summary: version.summary,
     })),
   };
+}
+
+export type Store = (typeof storeEnum.enumValues)[number];
+
+// Entitlements granted by products on sale, with the stores that sell them
+export async function entitlementsOnSale(appId: string): Promise<Map<string, Store[]>> {
+  const rows = await db
+    .select({ store: products.store, entitlements: products.entitlements })
+    .from(products)
+    .where(and(eq(products.appId, appId), isNull(products.archivedAt)));
+
+  const result = new Map<string, Store[]>();
+  for (const row of rows) {
+    for (const key of row.entitlements) {
+      const stores = result.get(key) ?? [];
+      if (!stores.includes(row.store)) stores.push(row.store);
+      result.set(key, stores);
+    }
+  }
+  return new Map([...result].sort(([a], [b]) => a.localeCompare(b)));
 }

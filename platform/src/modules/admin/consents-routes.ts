@@ -10,6 +10,7 @@ const slugParams = z.object({ slug: z.string().min(1).max(64) });
 const policyBody = z.object({
   mode: z.enum(['optional', 'consent_or_pay']),
   repromptAfterDays: z.number().int().min(30).max(730),
+  payEntitlement: z.string().min(1).max(64).nullable().optional(),
 });
 const reasonBody = z.object({ reason: z.string().trim().min(1).max(500) });
 

@@ -93,9 +93,15 @@ export const consentPolicies = appsSchema.table(
     policyVersion: text('policy_version').notNull(),
     // How long to wait after a refusal before asking again
     repromptAfterDays: integer('reprompt_after_days').notNull().default(180),
+    // consent_or_pay: the entitlement whose purchase replaces consent, e.g. "ad_free".
+    // Kept when the mode goes back to optional, so switching again is one click.
+    payEntitlement: text('pay_entitlement'),
     createdAt: createdAt(),
   },
-  (t) => [unique().on(t.appId, t.region)],
+  (t) => [
+    unique().on(t.appId, t.region),
+    check('consent_policies_pay_entitlement', sql`${t.mode} <> 'consent_or_pay' or ${t.payEntitlement} is not null`),
+  ],
 );
 
 // 'android' | 'ios', derived from the enum so both always match
