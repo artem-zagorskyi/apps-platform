@@ -1,30 +1,59 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 
-// A form bound to a server action that returns { ok } or { error }
-export function ActionForm({ action, submitLabel, variant = 'default', children }) {
+// A form bound to a server action that returns { ok } or { error }.
+// Errors stay under the form; success shows a toast.
+// inline: the controls and the button share one row.
+export function ActionForm({
+  action,
+  submitLabel,
+  pendingLabel = 'Saving…',
+  successMessage = 'Saved',
+  variant = 'default',
+  inline = false,
+  className,
+  children,
+}) {
   const [state, formAction, pending] = useActionState(action, null);
+  const toast = useToast();
+  // Every submit returns a new state object; toast each success once
+  const announced = useRef(null);
+
+  useEffect(() => {
+    if (state?.ok && announced.current !== state) {
+      announced.current = state;
+      toast.add({ title: successMessage });
+    }
+  }, [state, toast, successMessage]);
+
+  const button = (
+    <Button type="submit" variant={variant} disabled={pending}>
+      {pending ? pendingLabel : submitLabel}
+    </Button>
+  );
 
   return (
-    <form action={formAction} className="grid gap-2">
-      {children}
+    <form action={formAction} className={cn('flex flex-col gap-2', className)}>
+      {inline ? (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">{children}</div>
+          {button}
+        </div>
+      ) : (
+        <>
+          {children}
+          <div>{button}</div>
+        </>
+      )}
       {state?.error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-xs font-medium text-destructive">
           {state.error}
         </p>
       )}
-      {state?.ok && !pending && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Saved.
-        </p>
-      )}
-      <div>
-        <Button type="submit" variant={variant} disabled={pending}>
-          {pending ? 'Saving…' : submitLabel}
-        </Button>
-      </div>
     </form>
   );
 }

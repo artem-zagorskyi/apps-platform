@@ -10,7 +10,7 @@ function appPath(slug) {
   return `/apps/${encodeURIComponent(slug)}`;
 }
 
-// App names also show in the sidebar, so the whole panel is refreshed
+// App names and states also show in the sidebar, so the whole panel is refreshed
 function refreshPanel() {
   revalidatePath('/', 'layout');
 }
@@ -22,10 +22,17 @@ export async function renameApp(slug, _previous, formData) {
   });
 }
 
-export async function setAppStatus(slug, status, _previous, formData) {
-  const reason = String(formData.get('reason') ?? '').trim();
+// Called from the confirmation dialog with the reason typed there
+export async function disableApp(slug, reason) {
   return runAction(async () => {
-    await adminApi(appPath(slug), { method: 'PATCH', body: { status, ...(reason && { reason }) } });
+    await adminApi(appPath(slug), { method: 'PATCH', body: { status: 'disabled', reason } });
+    refreshPanel();
+  });
+}
+
+export async function enableApp(slug) {
+  return runAction(async () => {
+    await adminApi(appPath(slug), { method: 'PATCH', body: { status: 'active' } });
     refreshPanel();
   });
 }

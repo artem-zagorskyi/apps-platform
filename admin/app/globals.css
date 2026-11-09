@@ -1,7 +1,6 @@
 /* Renvix Apps Platform — shadcn theme, Tailwind v4. Accent: Indigo. */
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
