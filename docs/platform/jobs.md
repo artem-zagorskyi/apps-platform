@@ -143,6 +143,12 @@ as received, before JSON parsing.
 Then drop deliveries whose `x-platform-delivery` id was already handled, and
 answer `2xx` only after the change is stored.
 
+### Unknown notification types
+
+Answer `2xx` to a notification whose `type` you do not handle. New types are
+added over time, and the admin panel sends `test` from Settings → Webhooks to
+check the URL. Any other answer counts as a failed delivery and is retried.
+
 ### Storage
 
 | Table | Contents |
