@@ -48,7 +48,7 @@ describe('settings status', () => {
       webhooks: 'optional',
     });
 
-    await authed('PUT', `/apps/${app.slug}/platforms/android`, token, { bundleId: `com.test.${app.slug.slice(4)}` });
+    await authed('PUT', `/apps/${app.slug}/platforms/android`, token, { bundleId: `com.test.app${app.slug.slice(4)}` });    
     await authed('PUT', `/apps/${app.slug}/consent-policy`, token, { mode: 'optional', repromptAfterDays: 180 });
     await authed('PATCH', `/apps/${app.slug}`, token, { status: 'disabled', reason: 'Test' });
 
