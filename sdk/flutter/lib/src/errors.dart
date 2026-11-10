@@ -58,6 +58,8 @@ abstract final class ApiErrorCode {
   static const providerAlreadyLinked = 'provider_already_linked';
   static const accountUnavailable = 'account_unavailable';
   static const noLinkedAccount = 'no_linked_account';
+  /// The app is disabled in the admin panel; its data is kept
+  static const appDisabled = 'app_disabled';
 
   static const unknownProduct = 'unknown_product';
   static const invalidPurchase = 'invalid_purchase';

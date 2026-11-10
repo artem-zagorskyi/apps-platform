@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../api/models.dart';
@@ -80,6 +81,8 @@ class SessionManager {
   /// Renew the access token when it expires within this margin
   static const _refreshMargin = Duration(minutes: 1);
   static const _maxSignUpAttempts = 3;
+  /// After app_disabled the SDK does not contact the server for this long
+  static const disabledRetryAfter = Duration(minutes: 30);
 
   final PlatformApi _api;
   final SessionStore _store;
@@ -88,6 +91,8 @@ class SessionManager {
   final String Function() _newInstallationId;
 
   final _changes = StreamController<UserChange>.broadcast();
+  final ValueNotifier<bool> _appDisabled = ValueNotifier(false);
+  DateTime? _disabledAt;
 
   String? _installationId;
   StoredSession? _session;
@@ -108,6 +113,15 @@ class SessionManager {
   String? get installationId => _installationId;
 
   Stream<UserChange> get userChanges => _changes.stream;
+
+  /// True after the server answered that the app is disabled in the admin
+  /// panel. Stored data stays available; the SDK asks the server again after
+  /// [disabledRetryAfter] and at the next start-up.
+  ValueListenable<bool> get appDisabled => _appDisabled;
+
+  /// Whether [error] means the app is disabled
+  static bool isAppDisabled(Object error) =>
+      error is ApiException && error.code == ApiErrorCode.appDisabled;
 
   /// Loads the stored state and tries to make sure the device has a user.
   /// Never fails because of the network: offline it completes and the user
@@ -130,8 +144,9 @@ class SessionManager {
       try {
         await _renew();
       } on AppPlatformException catch (e) {
-        // Offline or server trouble: keep working, retry on the next request
-        if (!_isTransient(e)) rethrow;
+        // Offline, server trouble or a disabled app: keep working with the
+        // stored state, retry on the next request
+        if (!_isTransient(e) && !isAppDisabled(e)) rethrow;
       }
     } catch (_) {
       _starting = null;
@@ -140,9 +155,11 @@ class SessionManager {
   }
 
   /// A valid access token, renewed (or the user created) first if needed.
-  /// Throws NetworkException / ServerException while the server is unreachable.
+  /// Throws NetworkException / ServerException while the server is unreachable,
+  /// and ApiException app_disabled while the app is disabled.
   Future<String> accessToken() async {
     await start();
+    _throwIfDisabled();
     if (!_hasFreshAccessToken) await _renew();
 
     final token = _accessToken;
@@ -155,12 +172,13 @@ class SessionManager {
   Future<T> authorized<T>(Future<T> Function(String accessToken) send) async {
     final token = await accessToken();
     try {
-      return await send(token);
+      return await _watchDisabled(() => send(token));
     } on ApiException catch (e) {
       if (e.statusCode != 401 || e.code != ApiErrorCode.unauthorized) rethrow;
       // Force a renewal, unless a parallel request already replaced this token
       if (_accessToken == token) _accessToken = null;
-      return send(await accessToken());
+      final renewed = await accessToken();
+      return _watchDisabled(() => send(renewed));
     }
   }
 
@@ -241,7 +259,10 @@ class SessionManager {
     await applyTokens(tokens, UserChangeReason.accountDeleted);
   }
 
-  Future<void> dispose() => _changes.close();
+  Future<void> dispose() async {
+    _appDisabled.dispose();
+    await _changes.close();
+  }
 
   bool get _hasFreshAccessToken {
     final expiresAt = _accessTokenExpiresAt;
@@ -259,9 +280,38 @@ class SessionManager {
   static bool _isTransient(AppPlatformException e) =>
       e is NetworkException || e is ServerException;
 
+  // Within the pause after app_disabled: fail at once, without the network
+  void _throwIfDisabled() {
+    final at = _disabledAt;
+    if (at != null && _clock().difference(at) < disabledRetryAfter) {
+      throw ApiException(
+        statusCode: 403,
+        code: ApiErrorCode.appDisabled,
+        message: 'This app is disabled',
+      );
+    }
+  }
+
+  // Notes app_disabled from the server, and its end on any success
+  Future<T> _watchDisabled<T>(Future<T> Function() call) async {
+    try {
+      final result = await call();
+      _setDisabled(false);
+      return result;
+    } on ApiException catch (e) {
+      if (isAppDisabled(e)) _setDisabled(true);
+      rethrow;
+    }
+  }
+
+  void _setDisabled(bool disabled) {
+    _disabledAt = disabled ? _clock() : null;
+    if (_appDisabled.value != disabled) _appDisabled.value = disabled;
+  }
+
   // Single flight: concurrent callers share one renewal
   Future<void> _renew() {
-    return _renewing ??= _renewOnce().whenComplete(() {
+    return _renewing ??= _watchDisabled(_renewOnce).whenComplete(() {
       _renewing = null;
     });
   }
