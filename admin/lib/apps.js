@@ -29,3 +29,4 @@ export const getWebhookSettings = cache((slug) => readApp(slug, '/webhook'));
 export const getTrackingPlan = cache((slug) => readApp(slug, '/tracking-plan'));
 export const getConfigSchema = cache((slug) => readApp(slug, '/config-schema'));
 export const getCatalog = cache((slug) => readApp(slug, '/catalog'));
+export const getSettingsStatus = cache((slug) => readApp(slug, '/settings-status'));
