@@ -28,6 +28,7 @@ class ConsentState {
     required this.personalization,
     required this.canAskAgainAt,
     required this.policyVersion,
+    this.payEntitlement
   });
 
   static const initial = ConsentState(
@@ -51,6 +52,10 @@ class ConsentState {
 
   /// Current policy version; null until the server has answered once
   final String? policyVersion;
+
+  /// consent_or_pay: the entitlement whose purchase replaces consent.
+  /// Null in every other mode.
+  final String? payEntitlement;
 }
 
 /// Consent decisions: recorded on the device first, sent to the server
@@ -87,7 +92,7 @@ class ConsentManager {
     final owner = _local.ownerUserId;
     final userId = _session.userId;
     if (owner != null && userId != null && owner != userId) {
-      _local = LocalConsent(mode: _local.mode, policyVersion: _local.policyVersion);
+      _local = _local.policyOnly();
       await _store.write(_local);
     }
 
@@ -116,6 +121,7 @@ class ConsentManager {
       ownerUserId: _local.ownerUserId ?? userId,
       mode: _local.mode,
       policyVersion: _local.policyVersion,
+      payEntitlement: _local.payEntitlement,
       decisions: {
         ..._local.decisions,
         for (final entry in decisions.entries)
@@ -207,6 +213,7 @@ class ConsentManager {
       ownerUserId: userId,
       mode: server.mode,
       policyVersion: server.policyVersion,
+      payEntitlement: server.payEntitlement,
       decisions: server.decisions,
       canAskAgainAt: server.canAskAgainAt,
     );
@@ -225,11 +232,12 @@ class ConsentManager {
             ownerUserId: change.userId,
             mode: _local.mode,
             policyVersion: _local.policyVersion,
+            payEntitlement: _local.payEntitlement,
             decisions: _local.decisions,
             canAskAgainAt: _local.canAskAgainAt,
             pending: _local.pending,
           )
-        : LocalConsent(mode: _local.mode, policyVersion: _local.policyVersion);
+        : _local.policyOnly();
 
     await _store.write(_local);
     _publish();
@@ -274,6 +282,7 @@ class ConsentManager {
       personalization: allowed(ConsentPurpose.personalization),
       canAskAgainAt: local.canAskAgainAt,
       policyVersion: version,
+      payEntitlement: mode == ConsentMode.consentOrPay ? local.payEntitlement : null,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -14,6 +15,7 @@ import 'auth/provider_sign_in.dart';
 import 'billing/billing_manager.dart';
 import 'billing/in_app_purchase_store_client.dart';
 import 'config/config_manager.dart';
+import 'consent/consent_gate.dart';
 import 'consent/consent_manager.dart';
 import 'consent/consent_store.dart';
 import 'events/app_usage.dart';
@@ -37,6 +39,7 @@ class AppPlatform {
     this._usage,
     this.config,
     this.billing,
+    this._gate,
     this._lifecycle,
   );
 
@@ -52,6 +55,7 @@ class AppPlatform {
   final GoogleSignInFlow? _googleSignIn;
   final PlatformEvents _platformEvents;
   final AppUsageTracker _usage;
+  final ConsentGateWatcher _gate;
   // Kept so lifecycle callbacks stay registered for the app's lifetime
   // ignore: unused_field
   final AppLifecycleListener _lifecycle;
@@ -74,6 +78,16 @@ class AppPlatform {
   /// Subscriptions: `billing.entitlements.value.has('premium')`, products,
   /// purchases and restore
   final BillingManager billing;
+
+  /// What to show before letting the person in: nothing, the consent screen,
+  /// or "agree or buy" in apps with the consent_or_pay policy
+  ValueListenable<ConsentGate> get consentGate => _gate.gate;
+
+  /// True while the app is disabled in the admin panel. Show a
+  /// "temporarily unavailable" message; stored data stays available.
+  ValueListenable<bool> get appDisabled => _session.appDisabled;
+
+  
 
   /// The initialized SDK. Throws if [init] has not completed.
   static AppPlatform get instance {
@@ -175,11 +189,14 @@ class AppPlatform {
       );
       await billing.start();
 
+      final gate = ConsentGateWatcher(consent: consent.state, entitlements: billing.entitlements);
+
       final lifecycle = AppLifecycleListener(
         onShow: () {
           unawaited(usage.onForeground());
           config.onForeground();
           billing.onForeground();
+          gate.refresh();
         },
         onHide: () => unawaited(usage.onBackground()),
       );
@@ -198,6 +215,7 @@ class AppPlatform {
         usage,
         config,
         billing,
+        gate,
         lifecycle,
       );
     } catch (_) {

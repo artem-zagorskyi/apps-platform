@@ -201,7 +201,7 @@ enum ConsentMode {
   /// Consent screen; the app works after a refusal
   optional('optional'),
 
-  /// Consent or an ad-free subscription (with the ads system)
+  /// Consent to both purposes or a purchase (see ServerConsentState.payEntitlement)
   consentOrPay('consent_or_pay');
 
   const ConsentMode(this.wireName);
@@ -239,6 +239,7 @@ class ServerConsentState {
     required this.policyVersion,
     required this.decisions,
     required this.canAskAgainAt,
+    this.payEntitlement,
   });
 
   factory ServerConsentState.fromJson(Map<String, Object?> json) {
@@ -265,6 +266,7 @@ class ServerConsentState {
     return ServerConsentState(
       mode: readWireEnum(ConsentMode.values, (m) => m.wireName, policy, 'mode'),
       policyVersion: readString(policy, 'version'),
+      payEntitlement: readOptionalString(policy, 'payEntitlement'),
       decisions: decisions,
       canAskAgainAt: json['canAskAgainAt'] == null ? null : readDateTime(json, 'canAskAgainAt'),
     );
@@ -274,6 +276,8 @@ class ServerConsentState {
   final String policyVersion;
   final Map<ConsentPurpose, ConsentDecision> decisions;
   final DateTime? canAskAgainAt;
+  /// consent_or_pay: an active purchase granting it replaces consent
+  final String? payEntitlement;
 }
 
 bool readBool(Map<String, Object?> json, String key) {

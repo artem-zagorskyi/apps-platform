@@ -29,6 +29,7 @@ class LocalConsent {
     this.ownerUserId,
     this.mode,
     this.policyVersion,
+    this.payEntitlement,
     this.decisions = const {},
     this.canAskAgainAt,
     this.pending = const [],
@@ -43,16 +44,24 @@ class LocalConsent {
   final ConsentMode? mode;
   final String? policyVersion;
 
+  /// consent_or_pay: the entitlement whose purchase replaces consent
+  final String? payEntitlement;
+
   /// Latest decision per purpose, from the server or made on the device
   final Map<ConsentPurpose, ConsentDecision> decisions;
   final DateTime? canAskAgainAt;
   final List<PendingConsent> pending;
+
+  /// The policy without anyone's decisions: for a user who has none yet
+  LocalConsent policyOnly() =>
+      LocalConsent(mode: mode, policyVersion: policyVersion, payEntitlement: payEntitlement);
 
   LocalConsent withoutPending(PendingConsent sent) {
     return LocalConsent(
       ownerUserId: ownerUserId,
       mode: mode,
       policyVersion: policyVersion,
+      payEntitlement: payEntitlement,
       decisions: decisions,
       canAskAgainAt: canAskAgainAt,
       pending: [for (final item in pending) if (!identical(item, sent)) item],
@@ -88,6 +97,7 @@ class ConsentStore {
         'ownerUserId': c.ownerUserId,
         'mode': c.mode?.wireName,
         'policyVersion': c.policyVersion,
+        'payEntitlement': c.payEntitlement,
         'decisions': {
           for (final entry in c.decisions.entries)
             entry.key.name: {
@@ -131,6 +141,8 @@ class ConsentStore {
           ? null
           : readWireEnum(ConsentMode.values, (m) => m.wireName, json, 'mode'),
       policyVersion: readOptionalString(json, 'policyVersion'),
+      // Absent in values stored by earlier SDK versions
+      payEntitlement: readOptionalString(json, 'payEntitlement'),
       decisions: decisions,
       canAskAgainAt: json['canAskAgainAt'] == null ? null : readDateTime(json, 'canAskAgainAt'),
       pending: [for (final item in rawPending) _pendingFromJson(readObject(item))],

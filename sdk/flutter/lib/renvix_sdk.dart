@@ -20,6 +20,7 @@ export 'src/billing/store_client.dart' show PricingPhase, StoreOffer, StoreProdu
 export 'src/config/config_manager.dart' show ConfigManager;
 export 'src/config/config_source.dart';
 export 'src/consent/consent_manager.dart' show ConsentManager, ConsentState, ConsentStatus;
+export 'src/consent/consent_gate.dart' show ConsentGate;
 export 'src/errors.dart';
 export 'src/events/event_manager.dart' show EventManager;
 export 'src/events/event_tracker.dart';
