@@ -84,4 +84,18 @@ describe('settings status', () => {
     expect(tabs.subscriptions.status).toBe('optional');
     expect(product).toBeDefined();
   });
+
+  it('lists visible apps with their settings for Overview', async () => {
+    const owner = await signIn(await createTestAdmin());
+    const mine = await createApp(owner);
+    const other = await createApp(owner);
+    const product = await signIn(await createTestAdmin({ role: 'product', appId: mine.id }));
+
+    const overview = (await authed('GET', '/overview', product)).json();
+    expect(overview.apps.map((app: { slug: string }) => app.slug)).toEqual([mine.slug]);
+    expect(overview.apps[0].tabs.platforms.status).toBe('not_configured');
+
+    const all = (await authed('GET', '/overview', owner)).json();
+    expect(all.apps.map((app: { slug: string }) => app.slug)).toEqual(expect.arrayContaining([mine.slug, other.slug]));
+  });
 });

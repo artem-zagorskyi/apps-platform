@@ -6,6 +6,8 @@ import { parameterSchemas } from '../config/schema.js';
 import { trackingPlans } from '../events/schema.js';
 import { deliveries, endpoints } from '../webhooks/schema.js';
 import type { AdminApp } from './apps-service.js';
+import { listVisibleApps } from './apps-service.js';
+import type { AdminSession } from './service.js';
 
 // configured: done; not_configured: needed before release;
 // optional: depends on what the app needs; error: something is broken
@@ -91,4 +93,10 @@ export async function getSettingsStatus(app: AdminApp, now: Date = new Date()): 
         ? { status: 'error', hint: `${plural(failing, 'notification', 'notifications')} not delivered` }
         : { status: 'configured', hint: 'Delivering' },
   };
+}
+
+// Every app the admin can see with the state of its settings, for Overview
+export async function getAppsOverview(session: AdminSession) {
+  const visible = await listVisibleApps(session);
+  return Promise.all(visible.map(async (app) => ({ ...app, tabs: await getSettingsStatus(app) })));
 }

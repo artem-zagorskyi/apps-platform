@@ -18,7 +18,7 @@ import {
 } from './apps-service.js';
 import { actorOf, adminOf, requireAdmin } from './guard.js';
 import { SETTINGS_EDITORS, SETTINGS_READERS, hasGlobalRole } from './roles.js';
-import { getSettingsStatus } from './settings-status.js';
+import { getSettingsStatus, getAppsOverview } from './settings-status.js';
 
 const slugParams = z.object({ slug: z.string().min(1).max(64) });
 const platformParams = slugParams.extend({ platform: z.enum(platformEnum.enumValues) });
@@ -33,6 +33,11 @@ export async function adminAppsRoutes(server: FastifyInstance) {
   // Apps for the switcher in the panel
   app.get('/apps', async (request) => ({
     apps: await listVisibleApps(adminOf(request)),
+  }));
+
+  // Apps with the state of their settings, for Overview; any role
+  app.get('/overview', async (request) => ({
+    apps: await getAppsOverview(adminOf(request)),
   }));
 
   app.post(
