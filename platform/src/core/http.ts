@@ -27,6 +27,9 @@ export async function createServer(options: ServerOptions = {}) {
             transport: { target: 'pino-pretty' },
           }),
     },
+    // Trust only the last TRUST_PROXY_HOPS proxies (hop 0 is the socket peer):
+    // the same as a hop count, in the form the typings accept
+    trustProxy: (_address, hop) => hop < config.TRUST_PROXY_HOPS,
   });
 
   // Route schemas are written in zod

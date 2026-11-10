@@ -50,6 +50,7 @@ export const eventsRoutes: FastifyPluginAsyncZod = async (app) => {
           })),
         },
         request.ip,
+        request.log,
       );
 
       // Invalid events are stored, but someone should look at the tracking plan

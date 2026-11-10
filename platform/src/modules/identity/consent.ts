@@ -7,6 +7,7 @@ import { type consentPurposeEnum, consents, installations, users } from './schem
 import type { AccessTokenClaims } from './tokens.js';
 import { consentPolicies, type Platform } from '../apps/schema.js';
 import { entitlementsOnSale, type Store } from '../billing/catalog.js';
+import { forgetPresence } from '../events/presence.js';
 
 export type ConsentPurpose = (typeof consentPurposeEnum.enumValues)[number];
 
@@ -196,6 +197,8 @@ export async function recordConsent(
   });
 
   await db.insert(consents).values(rows);
+  // A refusal of analytics takes the installation off the live map at once
+  if (input.decisions.analytics === false) await forgetPresence(auth.installationId);
   return getConsentState(auth, log);
 }
 

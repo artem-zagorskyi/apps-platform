@@ -1,4 +1,4 @@
-import { date, integer, jsonb, pgSchema, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { date, integer, jsonb, pgSchema, primaryKey, text, timestamp, unique, uuid, index, real } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId } from '../../core/columns.js';
 import { apps, platformEnum } from '../apps/schema.js';
 import type { TrackingPlan } from './plan.js';
@@ -58,4 +58,24 @@ export const rejectionCounts = eventsSchema.table(
       columns: [t.appId, t.day, t.reason, t.platform, t.appVersion],
     }),
   ],
+);
+
+// Who used an app in the last minutes and where, for the live map in the
+// admin panel. Only installations with analytics consent; the city and its
+// centre, never the IP. Rows older than a day are removed.
+export const presence = eventsSchema.table(
+  'presence',
+  {
+    installationId: uuid('installation_id').primaryKey(),
+    appId: uuid('app_id')
+      .notNull()
+      .references(() => apps.id),
+    platform: platformEnum('platform').notNull(),
+    country: text('country'),
+    city: text('city'),
+    lat: real('lat'),
+    lon: real('lon'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('presence_app_seen_idx').on(t.appId, t.lastSeenAt)],
 );

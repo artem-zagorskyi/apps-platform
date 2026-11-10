@@ -67,6 +67,9 @@ const envSchema = z.object({
   // private admin network so app backends cannot connect at all.
   ADMIN_HOST: z.string().default('127.0.0.1'),
   ADMIN_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  // Proxies in front of the server (Caddy = 1). With 0 the socket address is
+  // the client; with 1 the address Caddy adds to X-Forwarded-For is.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 }).refine((env) => env.ADMIN_PORT !== env.PORT, {
   message: 'must differ from PORT',
   path: ['ADMIN_PORT'],

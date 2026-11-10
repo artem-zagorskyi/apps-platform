@@ -1,5 +1,7 @@
 import { db } from '../../core/db.js';
-import { countryOf } from '../../core/geoip.js';
+import type { FastifyBaseLogger } from 'fastify';
+import { locate } from '../../core/geoip.js';
+import { markPresent, updateInstallationPlace } from './presence.js';
 import { isAnalyticsAllowed } from '../identity/consent.js';
 import type { AccessTokenClaims } from '../identity/tokens.js';
 import { events } from './events-table.js';
@@ -33,6 +35,7 @@ export async function ingestEvents(
   auth: AccessTokenClaims,
   batch: { sentAt: Date; events: IncomingEvent[] },
   ip: string,
+  log?: FastifyBaseLogger,
 ): Promise<IngestResult> {
   const receivedAt = new Date();
   // Device clock error, applied to every event of the batch
@@ -40,7 +43,8 @@ export async function ingestEvents(
 
   const plan = await getEffectivePlan(auth.appId);
   const analyticsAllowed = await isAnalyticsAllowed(auth.appId, auth.userId);
-  const country = countryOf(ip);
+  const location = locate(ip);
+  const country = location?.country ?? null;
 
   const rejected: IngestResult['rejected'] = [];
   const rows: (typeof events.$inferInsert)[] = [];
@@ -128,6 +132,14 @@ export async function ingestEvents(
         ],
         set: { count: sql`${rejectionCounts.count} + excluded.count` },
       });
+  }
+
+  // Where the installation is, and the live map; never fails the batch
+  try {
+    await updateInstallationPlace(auth, location, analyticsAllowed);
+    if (analyticsAllowed) await markPresent(auth, location);
+  } catch (err) {
+    log?.warn({ err }, 'installation place or presence not saved');
   }
 
   return {
