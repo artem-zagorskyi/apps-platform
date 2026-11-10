@@ -26,6 +26,12 @@ const deadRefreshToken = ApiException(
   message: 'Refresh token is invalid or expired',
 );
 
+const appDisabled = ApiException(
+  statusCode: 403,
+  code: ApiErrorCode.appDisabled,
+  message: 'This app is disabled',
+);
+
 /// In-memory stand-in for the platform server.
 /// Issues numbered tokens and nonces; handlers override responses per test.
 class FakeApi implements PlatformApi {
@@ -53,6 +59,8 @@ class FakeApi implements PlatformApi {
   // Consent server: one policy, decisions per user
   ConsentMode consentMode = ConsentMode.optional;
   String consentPolicyVersion = 'v1';
+  /// consent_or_pay: the entitlement the server reports with the policy
+  String? consentPayEntitlement;
   AppPlatformException? consentFailure;
   final consentRecords = <({
     String userId,
@@ -97,6 +105,7 @@ class FakeApi implements PlatformApi {
         policyVersion: consentPolicyVersion,
         decisions: Map.of(_consentByUser[userId] ?? const {}),
         canAskAgainAt: null,
+        payEntitlement: consentPayEntitlement,
       );
 
   @override

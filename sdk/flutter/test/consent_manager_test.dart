@@ -178,4 +178,42 @@ void main() {
     // The policy was unknown when deciding: the current one applies
     expect(record.policyVersion, 'v1');
   });
+
+    test('consent_or_pay: the paid alternative holds through decisions and restarts', () async {
+    api.consentMode = ConsentMode.consentOrPay;
+    api.consentPayEntitlement = 'ad_free';
+    await startOnline();
+    expect(state().payEntitlement, 'ad_free');
+
+    // Decided offline: the stored policy keeps its entitlement
+    api.consentFailure = _offline;
+    await consent.record(analytics: false, personalization: false, source: ConsentSource.firstLaunch);
+    await _flush();
+    expect(state().payEntitlement, 'ad_free');
+
+    await consent.dispose();
+    final restarted = await createConsent();
+    expect(restarted.state.value.payEntitlement, 'ad_free');
+  });
+
+  test('consent_or_pay: after logout the policy stays known offline', () async {
+    api.consentMode = ConsentMode.consentOrPay;
+    api.consentPayEntitlement = 'ad_free';
+    await startOnline();
+
+    api.consentFailure = _offline;
+    await session.applyTokens(api.issue('user-2'), UserChangeReason.loggedOut);
+    await _flush();
+
+    expect(state().status, ConsentStatus.needsDecision);
+    expect(state().payEntitlement, 'ad_free');
+  });
+
+  test('the paid alternative is reported only in consent_or_pay', () async {
+    // The server keeps the entitlement while the mode is optional
+    api.consentPayEntitlement = 'ad_free';
+    await startOnline();
+
+    expect(state().payEntitlement, isNull);
+  });
 }
