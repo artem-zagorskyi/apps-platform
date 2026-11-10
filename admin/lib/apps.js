@@ -32,3 +32,5 @@ export const getCatalog = cache((slug) => readApp(slug, '/catalog'));
 export const getSettingsStatus = cache((slug) => readApp(slug, '/settings-status'));
 export const getOverview = cache(async () => (await adminApi('/overview')).apps);
 export const getConfigOverview = cache((slug) => readApp(slug, '/config'));
+export const getConfigVersions = cache((slug) => readApp(slug, '/config/versions'));
+export const compareConfigVersions = cache((slug, from, to) => readApp(slug, `/config/compare?from=${from}&to=${to}`));

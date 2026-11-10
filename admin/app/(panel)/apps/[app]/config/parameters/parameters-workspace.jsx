@@ -1,10 +1,10 @@
 'use client';
 
-import { ChevronRight, CircleAlert, PencilLine, RefreshCw } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { DraftBar } from '@/components/config/draft-bar';
 import { ParameterEditor } from '@/components/config/parameter-editor';
 import { ReviewPublish } from '@/components/config/review-publish';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { decidedBy, showValue, splitChangePath, typeDetail } from '@/lib/config-format';
 import { cn } from '@/lib/utils';
@@ -23,11 +23,10 @@ const GRID = 'grid grid-cols-[minmax(14rem,1.6fr)_7.5rem_minmax(7rem,0.8fr)_minm
  * overview: { live, draft, schema, conditionFields } from the admin API
  * actions: bound server actions { save, discard, rebase, publish }, each resolving to { ok, data } or { error }
  */
-export function ParametersWorkspace({ overview, actions, canEdit }) {
+export function ParametersWorkspace({ overview, actions, canEdit, initialReview = false }) {
   const toast = useToast();
   const [editing, setEditing] = useState(null);
-  const [reviewing, setReviewing] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [reviewing, setReviewing] = useState(initialReview && Boolean(overview.draft));
 
   const { live, draft, schema, conditionFields } = overview;
   const document = draft?.document ?? live?.document ?? { format_version: 1, parameters: {}, experiments: {} };
@@ -103,71 +102,14 @@ export function ParametersWorkspace({ overview, actions, canEdit }) {
   }
 
   return (
-    <div className={cn('flex flex-col gap-4 transition-opacity', pending && 'opacity-60')}>
-      {draft && (
-        <div
-          className={cn(
-            'flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 text-[0.8125rem]',
-            draft.stale ? 'border-warning bg-warning-soft' : 'border-primary/40 bg-primary-soft',
-          )}
-        >
-          <PencilLine className={cn('size-4', draft.stale ? 'text-warning' : 'text-primary-soft-foreground')} />
-          <span className="text-primary-soft-foreground">
-            <b className="font-semibold">
-              Draft: {draft.changes.length} change{draft.changes.length === 1 ? '' : 's'}
-            </b>{' '}
-            on top of {draft.baseVersion ? `v${draft.baseVersion}` : 'nothing published'}. Nothing reaches users until you
-            publish.
-          </span>
-          {draft.errors.length > 0 && (
-            <span className="inline-flex items-center gap-1 text-destructive">
-              <CircleAlert className="size-3.5" />
-              {draft.errors.length} error{draft.errors.length === 1 ? '' : 's'}
-            </span>
-          )}
-          {draft.stale && (
-            <span className="text-warning">v{live?.version} was published after this draft was started.</span>
-          )}
-          {canEdit && (
-            <span className="ml-auto flex items-center gap-1.5">
-              <Button
-                variant="ghost"
-                className="text-primary-soft-foreground"
-                onClick={() =>
-                  startTransition(async () => {
-                    const result = await actions.discard();
-                    if (result.error) fail(result);
-                    else toast.add({ title: 'Draft discarded' });
-                  })
-                }
-              >
-                Discard
-              </Button>
-              {draft.stale ? (
-                <Button
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await actions.rebase();
-                      if (result.error) return fail(result);
-                      const conflicts = result.data.conflicts;
-                      toast.add({
-                        title: conflicts.length
-                          ? `Up to date; check ${conflicts.join(', ')}: changed on both sides`
-                          : `Draft brought up to v${live?.version}`,
-                      });
-                    })
-                  }
-                >
-                  <RefreshCw />
-                  Bring up to date
-                </Button>
-              ) : (
-                <Button onClick={() => setReviewing(true)}>Review &amp; publish</Button>
-              )}
-            </span>
-          )}
-        </div>
-      )}
+    <div className="flex flex-col gap-4">
+      <DraftBar
+        draft={draft}
+        liveVersion={live?.version ?? null}
+        canEdit={canEdit}
+        actions={actions}
+        onReview={() => setReviewing(true)}
+      />
 
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3">

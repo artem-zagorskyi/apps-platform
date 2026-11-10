@@ -37,3 +37,10 @@ export async function rebaseConfigDraft(slug) {
 export async function publishConfigDraft(slug, comment) {
   return act(slug, () => adminApi(`${configPath(slug)}/publish`, { method: 'POST', body: { comment } }));
 }
+
+// An old version's parameters into the draft; replace: overwrite an existing draft
+export async function restoreConfigVersion(slug, version, replace) {
+  return act(slug, () =>
+    adminApi(`${configPath(slug)}/versions/${version}/restore`, { method: 'POST', body: { replace: Boolean(replace) } }),
+  );
+}

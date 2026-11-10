@@ -28,7 +28,7 @@ function After({ children }) {
   return <span className="max-w-[26rem] truncate rounded bg-success-soft px-1.5 font-mono text-xs">{children}</span>;
 }
 
-function ChangeRow({ change }) {
+export function ChangeRow({ change }) {
   const { group, part, mono } = splitChangePath(change.path);
   const before = shown(part, change.before);
   const after = shown(part, change.after);

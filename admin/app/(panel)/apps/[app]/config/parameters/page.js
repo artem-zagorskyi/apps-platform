@@ -5,8 +5,9 @@ import { ParametersWorkspace } from './parameters-workspace';
 
 const EDITORS = ['owner', 'product'];
 
-export default async function ConfigParametersPage({ params }) {
+export default async function ConfigParametersPage({ params, searchParams }) {
   const { app: slug } = await params;
+  const { review } = await searchParams;
   const [session, { app }, overview] = await Promise.all([requireSession(), getApp(slug), getConfigOverview(slug)]);
   const canEdit = session.roles.some((grant) => EDITORS.includes(grant.role) && (grant.appId === null || grant.appId === app.id));
 
@@ -14,6 +15,7 @@ export default async function ConfigParametersPage({ params }) {
     <ParametersWorkspace
       overview={overview}
       canEdit={canEdit}
+      initialReview={review === '1'}
       actions={{
         save: saveConfigDraft.bind(null, app.slug),
         discard: discardConfigDraft.bind(null, app.slug),
