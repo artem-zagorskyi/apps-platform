@@ -169,6 +169,13 @@
       "when": 1794255985914,
       "tag": "0023_consent_pay_entitlement",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794322658816,
+      "tag": "0024_activity_days",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import type { FastifyRequest } from 'fastify';
 import { AppError } from '../../core/errors.js';
 import { type AccessTokenClaims, verifyAccessToken } from './tokens.js';
 import { assertAppNotDisabled } from '../apps/service.js';
+import { markActive } from './activity.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -33,6 +34,13 @@ export async function requireAuth(request: FastifyRequest): Promise<void> {
   // A disabled app is stopped for everyone, even with a valid token
   await assertAppNotDisabled(claims.appId);
   request.auth = claims;
+
+  // Usage statistics; a failed write never fails the request
+  try {
+    await markActive(claims);
+  } catch (err) {
+    request.log.warn({ err }, 'activity mark failed');
+  }
 }
 
 // Claims of the current request. Only valid on routes with requireAuth.

@@ -10,6 +10,8 @@ import {
   text,
   unique,
   uuid,
+  date,
+  primaryKey
 } from 'drizzle-orm/pg-core';
 import { createdAt, primaryId, tz } from '../../core/columns.js';
 import {
@@ -311,4 +313,23 @@ export const authNonces = identitySchema.table(
     usedAt: tz('used_at'),
   },
   (t) => [index('auth_nonces_installation_id_idx').on(t.installationId)],
+);
+
+// Days an installation used the app, for active users and retention in the
+// admin panel. Set by any authenticated request: nothing about what the
+// person did. Counted for everyone as usage statistics of the service
+// (legitimate interest); removed after about 13 months.
+export const activityDays = identitySchema.table(
+  'activity_days',
+  {
+    appId: uuid('app_id')
+      .notNull()
+      .references(() => apps.id),
+    // UTC day
+    day: date('day', { mode: 'string' }).notNull(),
+    // No foreign key: the history must not block anything done to installations
+    installationId: uuid('installation_id').notNull(),
+    platform: platformEnum('platform').notNull(),
+  },
+  (t) => [primaryKey({ name: 'activity_days_pkey', columns: [t.appId, t.day, t.installationId] })],
 );

@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "plan:upload": "tsx --env-file=.env scripts/upload-plan.ts",
+    "geoip:update": "tsx --env-file=.env scripts/geoip-update.ts",
     "config:schema": "tsx --env-file=.env scripts/upload-config-schema.ts",
     "config:publish": "tsx --env-file=.env scripts/publish-config.ts",
     "config:show": "tsx --env-file=.env scripts/show-config.ts",

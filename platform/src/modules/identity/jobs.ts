@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { JobDefinition } from '../../core/jobs.js';
 import { deleteOldConsents, ERASE_JOB, eraseOverdueUsers, eraseUser } from './deletion.js';
 import { deleteOldNonces, deleteOldSessions } from './maintenance.js';
+import { deleteOldActivityDays } from './activity.js';
 
 const eraseData = z.object({ userId: z.uuid() });
 
@@ -49,6 +50,14 @@ export const identityJobs: JobDefinition[] = [
     handler: async (_data, log) => {
       const deleted = await deleteOldSessions(new Date());
       if (deleted > 0) log.info({ deleted }, 'old sessions deleted');
+    },
+  },
+  {
+    name: 'identity-delete-old-activity',
+    schedule: '50 4 * * *',
+    handler: async (_data, log) => {
+      const deleted = await deleteOldActivityDays(new Date());
+      if (deleted > 0) log.info({ deleted }, 'old activity days deleted');
     },
   },
 ];
