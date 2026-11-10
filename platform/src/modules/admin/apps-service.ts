@@ -126,32 +126,30 @@ export async function updateApp(
     throw new AppError(400, 'reason_required', 'A reason is required to disable an app');
   }
 
-  return db.transaction(async (tx) => {
-      const updated = await db.transaction(async (tx) => {
-      const [row] = await tx.update(apps).set(after).where(eq(apps.id, app.id)).returning(appColumns);
-      await writeAudit(
-        {
-          adminId: actor.adminId,
-          action: 'app.update',
-          appId: app.id,
-          targetType: 'app',
-          targetId: app.id,
-          reason: changes.reason,
-          before,
-          after,
-          ip: actor.ip,
-        },
-        tx,
-      );
-      return row!;
-    });
-  
-    // Takes effect for the app's requests at once, not after the cache expires
-    if (before.status !== after.status) {
-      forgetAppStatus(app.id);
-    }
-    return updated; 
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx.update(apps).set(after).where(eq(apps.id, app.id)).returning(appColumns);
+    await writeAudit(
+      {
+        adminId: actor.adminId,
+        action: 'app.update',
+        appId: app.id,
+        targetType: 'app',
+        targetId: app.id,
+        reason: changes.reason,
+        before,
+        after,
+        ip: actor.ip,
+      },
+      tx,
+    );
+    return row!;
   });
+
+  // After the commit, so the app's next request reads the new status at once
+  if (before.status !== after.status) {
+    forgetAppStatus(app.id);
+  }
+  return updated;
 }
 
 // Adds a platform to the app or changes its package name / bundle ID

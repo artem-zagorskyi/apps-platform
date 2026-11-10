@@ -18,6 +18,7 @@ import {
 } from './apps-service.js';
 import { actorOf, adminOf, requireAdmin } from './guard.js';
 import { SETTINGS_EDITORS, SETTINGS_READERS, hasGlobalRole } from './roles.js';
+import { getSettingsStatus } from './settings-status.js';
 
 const slugParams = z.object({ slug: z.string().min(1).max(64) });
 const platformParams = slugParams.extend({ platform: z.enum(platformEnum.enumValues) });
@@ -49,6 +50,12 @@ export async function adminAppsRoutes(server: FastifyInstance) {
   app.get('/apps/:slug', { schema: { params: slugParams } }, async (request) => {
     const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_READERS);
     return { app: found, platforms: await getAppPlatforms(found.id) };
+  });
+
+  // State of every settings tab, for the dots and the setup checklist
+  app.get('/apps/:slug/settings-status', { schema: { params: slugParams } }, async (request) => {
+    const found = await findAppForAdmin(adminOf(request), request.params.slug, SETTINGS_READERS);
+    return { tabs: await getSettingsStatus(found) };
   });
 
   app.patch(
