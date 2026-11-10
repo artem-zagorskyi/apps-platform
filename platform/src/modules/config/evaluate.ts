@@ -1,23 +1,13 @@
 import { createHash } from 'node:crypto';
-import type { Platform } from '../apps/schema.js';
-import { compareVersions, type ConfigDocument, type Experiment, type RuleCondition } from './document.js';
+import { conditionProblems, type EvaluationContext, RULE_FIELDS, TARGETING_FIELDS } from './conditions.js';
+import type { ConfigDocument, Experiment, RuleCondition } from './document.js';
+
+export type { EvaluationContext } from './conditions.js';
 
 // Computes one user's config values from the active config document, and
 // why each value is what it is. Pure: no database, no network.
 
 const BUCKETS = 10_000;
-
-export interface EvaluationContext {
-  appId: string;
-  userId: string;
-  platform: Platform;
-  appVersion: string;
-  // From GeoIP; null when unknown, then country conditions never match
-  country: string | null;
-  // Has a linked account (Google, Apple)
-  linked: boolean;
-  userCreatedAt: Date;
-}
 
 export interface EvaluatedExperiment {
   key: string;
@@ -82,43 +72,14 @@ function toBuckets(percent: number): number {
   return Math.round(percent * 100);
 }
 
-type SharedCondition = Pick<
-  RuleCondition,
-  'platforms' | 'min_app_version' | 'max_app_version' | 'countries' | 'linked'
->;
-
-// Conditions the user does not meet; empty when all match
-function sharedProblems(c: SharedCondition, ctx: EvaluationContext): string[] {
-  const problems: string[] = [];
-  if (c.platforms && !c.platforms.includes(ctx.platform)) {
-    problems.push(`platform ${ctx.platform} is not ${c.platforms.join(' or ')}`);
-  }
-  if (c.min_app_version && compareVersions(ctx.appVersion, c.min_app_version) < 0) {
-    problems.push(`app version ${ctx.appVersion} is below ${c.min_app_version}`);
-  }
-  if (c.max_app_version && compareVersions(ctx.appVersion, c.max_app_version) > 0) {
-    problems.push(`app version ${ctx.appVersion} is above ${c.max_app_version}`);
-  }
-  if (c.countries) {
-    if (ctx.country === null) problems.push('country is unknown');
-    else if (!c.countries.includes(ctx.country)) problems.push(`country ${ctx.country} is not ${c.countries.join(', ')}`);
-  }
-  if (c.linked !== undefined && c.linked !== ctx.linked) {
-    problems.push(c.linked ? 'has no linked account' : 'has a linked account');
-  }
-  return problems;
-}
-
 function ruleProblems(c: RuleCondition, ctx: EvaluationContext): string[] {
-  const problems = sharedProblems(c, ctx);
-  if (c.user_ids && !c.user_ids.includes(ctx.userId)) problems.push('user is not in user_ids');
-  return problems;
+  return conditionProblems(RULE_FIELDS, c, ctx);
 }
 
 function targetingProblems(experiment: Experiment, ctx: EvaluationContext): string[] {
   const targeting = experiment.targeting;
   if (!targeting) return [];
-  const problems = sharedProblems(targeting, ctx);
+  const problems = conditionProblems(TARGETING_FIELDS, targeting, ctx);
   if (targeting.new_users_only) {
     if (!experiment.started_at) {
       problems.push('new users only, and the experiment has no start time');

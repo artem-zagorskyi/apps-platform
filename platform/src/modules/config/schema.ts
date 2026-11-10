@@ -1,5 +1,5 @@
 import { integer, jsonb, pgSchema, text, unique, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, primaryId } from '../../core/columns.js';
+import { createdAt, primaryId, tz } from '../../core/columns.js';
 import { apps } from '../apps/schema.js';
 import type { ConfigDocument } from './document.js';
 import type { ParameterSchema } from './parameters.js';
@@ -51,3 +51,18 @@ export const configVersions = configSchema.table(
   // Also serves "latest version of an app"
   (t) => [unique('versions_app_number_key').on(t.appId, t.number)],
 );
+
+// The shared draft of an app's config: edits wait here until published.
+// One per app; it remembers the live version it was started from.
+export const configDrafts = configSchema.table('drafts', {
+  appId: uuid('app_id')
+    .primaryKey()
+    .references(() => apps.id),
+  // null before the first publish
+  baseVersion: integer('base_version'),
+  document: jsonb('document').$type<ConfigDocument>().notNull(),
+  // Email of the admin who changed it last
+  updatedBy: text('updated_by'),
+  createdAt: createdAt(),
+  updatedAt: tz('updated_at').notNull().defaultNow(),
+});

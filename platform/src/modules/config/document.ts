@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { platformEnum } from '../apps/schema.js';
+import { compareVersions, conditionShape, RULE_FIELDS, TARGETING_FIELDS } from './conditions.js';
 import { lookupParameter, nameSchema, type ParameterSchema, valueProblem } from './parameters.js';
+
+export { compareVersions } from './conditions.js';
 
 // The config document of an app: server values, rules, experiments and the
 // holdout. Published as a whole; every publish is a new version.
@@ -14,27 +16,13 @@ function percentSchema(max: number) {
     .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-9, 'at most two decimals');
 }
 
-// 1, 1.2 or 1.2.3
-const versionSchema = z.string().regex(/^\d+(\.\d+){0,2}$/, 'must look like 1.2.3');
-
-const conditionFields = {
-  platforms: z.array(z.enum(platformEnum.enumValues)).min(1).optional(),
-  min_app_version: versionSchema.optional(),
-  max_app_version: versionSchema.optional(),
-  countries: z
-    .array(z.string().regex(/^[A-Z]{2}$/, 'must be an ISO country code like DE'))
-    .min(1)
-    .optional(),
-  // true: the user has a linked account; false: anonymous
-  linked: z.boolean().optional(),
-};
-
+// Condition fields are defined in conditions.ts
 const ruleCondition = z
-  .strictObject({ ...conditionFields, user_ids: z.array(z.uuid()).min(1).max(1000).optional() })
+  .strictObject(conditionShape(RULE_FIELDS))
   .refine((c) => Object.keys(c).length > 0, 'a rule needs at least one condition');
 
 const targetingSchema = z.strictObject({
-  ...conditionFields,
+  ...conditionShape(TARGETING_FIELDS),
   // Only users created after the experiment started
   new_users_only: z.boolean().optional(),
 });
@@ -104,19 +92,6 @@ export function canonicalJson(value: unknown): string {
 
 function sameJson(a: unknown, b: unknown): boolean {
   return canonicalJson(a) === canonicalJson(b);
-}
-
-// Compares dotted versions numerically (1.10 > 1.9). Missing parts are 0;
-// suffixes like -beta are ignored.
-export function compareVersions(a: string, b: string): number {
-  const parse = (v: string) => v.split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const pa = parse(a);
-  const pb = parse(b);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (diff !== 0) return Math.sign(diff);
-  }
-  return 0;
 }
 
 // Parameters an experiment sets, sorted
