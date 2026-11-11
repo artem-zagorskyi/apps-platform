@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { platformEnum } from '../apps/schema.js';
 import {
   compareConfigVersions,
   getConfigOverview,
@@ -8,6 +9,7 @@ import {
   rebaseDraft,
   saveDraft,
 } from '../config/drafts-service.js';
+import { explainForSandbox } from '../config/sandbox.js';
 import { getConfigVersion } from '../config/versions-service.js';
 import { AppError } from '../../core/errors.js';
 import { findAppForAdmin } from './apps-service.js';
@@ -25,6 +27,20 @@ const draftBody = z.object({
   baseVersion: z.number().int().min(1).nullable(),
   // The draft the editor saw (its updatedAt), so edits of two admins never overwrite each other silently
   expectedUpdatedAt: z.iso.datetime().nullable().optional(),
+});
+
+const sandboxBody = z.object({
+  config: z.enum(['live', 'draft']),
+  user: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('id'), userId: z.uuid(), installationId: z.uuid().optional() }),
+    z.object({
+      kind: z.literal('manual'),
+      platform: z.enum(platformEnum.enumValues),
+      appVersion: z.string().regex(/^\d+(\.\d+){0,2}$/, 'must look like 1.2.3'),
+      country: z.string().regex(/^[A-Z]{2}$/, 'must be an ISO country code like DE').nullable(),
+      linked: z.boolean(),
+    }),
+  ]),
 });
 
 export async function adminConfigDraftRoutes(server: FastifyInstance) {
@@ -104,6 +120,12 @@ export async function adminConfigDraftRoutes(server: FastifyInstance) {
       return compareConfigVersions(found.id, request.query.from, request.query.to);
     },
   );
+
+  // Which config a user gets and why; changes nothing
+  app.post('/apps/:slug/config/sandbox', { schema: { params: slugParams, body: sandboxBody } }, async (request) => {
+    const found = await findAppForAdmin(adminOf(request), request.params.slug, ALL_ROLES);
+    return explainForSandbox(found.id, request.body.config, request.body.user);
+  });
 
   // An old version's parameters as the draft; experiments and holdout stay as live
   app.post(

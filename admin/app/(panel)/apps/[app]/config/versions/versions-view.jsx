@@ -68,7 +68,9 @@ export function VersionsView({ versions, draft, liveVersion, a, b, comparison, c
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex flex-col gap-0.5 px-4 py-3">
           <span className="text-sm font-semibold">Versions</span>
-          <span className="text-xs text-muted-foreground">{comparable ? 'Pick A and B to compare any two versions' : 'Comparing is possible from the second published version'}</span>
+          <span className="text-xs text-muted-foreground">
+            {comparable ? 'Pick A and B to compare any two versions' : 'Comparing is possible from the second published version'}
+          </span>
         </div>
 
         {versions.length === 0 ? (
@@ -92,18 +94,28 @@ export function VersionsView({ versions, draft, liveVersion, a, b, comparison, c
                 return (
                   <div key={version.version} className={cn(GRID, 'min-h-10 border-t border-border py-1.5 text-[0.8125rem]')}>
                     {comparable ? (
-                        <>
-                          <Radio checked={a === version.version} label={`Compare from v${version.version}`} onChange={() => pickVersions({ a: version.version, b })} />
-                          <Radio checked={b === version.version} label={`Compare to v${version.version}`} onChange={() => pickVersions({ a, b: version.version })} />
-                        </>
-                      ) : (
-                        <>
-                          <span />
-                          <span />
-                        </>
-                      )}
+                      <>
+                        <Radio
+                          checked={a === version.version}
+                          label={`Compare from v${version.version}`}
+                          onChange={() => pickVersions({ a: version.version, b })}
+                        />
+                        <Radio
+                          checked={b === version.version}
+                          label={`Compare to v${version.version}`}
+                          onChange={() => pickVersions({ a, b: version.version })}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <span />
+                        <span />
+                      </>
+                    )}
                     <span className="font-mono text-xs font-semibold">v{version.version}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{timeFormat.format(new Date(version.publishedAt))}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {timeFormat.format(new Date(version.publishedAt))}
+                    </span>
                     <span className="truncate text-xs">{version.publishedBy ?? 'script'}</span>
                     <span className="truncate" title={`${version.changes} change${version.changes === 1 ? '' : 's'}`}>
                       {version.comment ?? <span className="text-muted-foreground">—</span>}
@@ -135,7 +147,9 @@ export function VersionsView({ versions, draft, liveVersion, a, b, comparison, c
       </section>
 
       {comparison && (
-        <section className={cn('overflow-hidden rounded-lg border border-border bg-card transition-opacity', pending && 'opacity-60')}>
+        <section
+          className={cn('overflow-hidden rounded-lg border border-border bg-card transition-opacity', pending && 'opacity-60')}
+        >
           <div className="px-4 py-3 text-sm font-semibold">
             v{comparison.from} → v{comparison.to}
           </div>
@@ -162,8 +176,8 @@ export function VersionsView({ versions, draft, liveVersion, a, b, comparison, c
             </>
           }
         >
-          Restoring puts the parameters, values and rules of v{confirming} into the draft. Nothing reaches users until you
-          publish it.
+          Restoring puts the parameters, values and rules of v{confirming} into the draft. Nothing reaches users until you publish
+          it.
         </DialogContent>
       </Dialog>
     </div>

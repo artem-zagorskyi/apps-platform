@@ -1,5 +1,10 @@
-import { ComingNext } from '@/components/config/coming-next';
+import { getApp, getConfigOverview } from '@/lib/apps';
+import { explainConfigForUser } from '../actions';
+import { SandboxView } from './sandbox-view';
 
-export default function ConfigSandboxPage() {
-  return <ComingNext title="Sandbox comes next">Which config a user gets and why, for the live version and the draft. After Versions.</ComingNext>;
+export default async function ConfigSandboxPage({ params }) {
+  const { app: slug } = await params;
+  const [{ app }, overview] = await Promise.all([getApp(slug), getConfigOverview(slug)]);
+
+  return <SandboxView overview={overview} explain={explainConfigForUser.bind(null, app.slug)} />;
 }

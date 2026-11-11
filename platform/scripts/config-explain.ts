@@ -60,6 +60,8 @@ function experimentText(d: ExperimentDecision): string {
       return `${d.variant} (variant bucket ${pct(d.bucket)})${d.parameters.length === 0 ? silent : ''}`;
     case 'forced':
       return `${d.variant} (tester)${d.parameters.length === 0 ? silent : ''}`;
+    case 'needs_user_id':
+      return `${d.key}: needs a user ID to place the user`;
   }
 }
 

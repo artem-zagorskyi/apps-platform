@@ -36,7 +36,9 @@ export type ExperimentDecision =
   // In the experiment. `parameters` lists those it decides; empty means force
   // overrides all of them and the app does not hear of the experiment.
   | { key: string; outcome: 'assigned'; variant: string; bucket: number; parameters: string[] }
-  | { key: string; outcome: 'forced'; variant: string; parameters: string[] };
+  | { key: string; outcome: 'forced'; variant: string; parameters: string[] }
+  // Explained without a user ID (admin sandbox): the user cannot be placed
+  | { key: string; outcome: 'needs_user_id' };
 
 export type ParameterSource =
   | { kind: 'force' }
@@ -105,18 +107,26 @@ function pickVariant(
   return undefined;
 }
 
+export interface ExplainOptions {
+  // false: there is no real user ID (a user described in the admin sandbox), so
+  // holdout and experiments are not computed and rules see no user ID
+  bucketing?: boolean;
+}
+
 // Every decision behind the user's config: the experiments, then each parameter
 export function explainConfig(
   active: { number: number; document: ConfigDocument } | null,
   ctx: EvaluationContext,
+  options: ExplainOptions = {},
 ): ConfigExplanation {
   if (!active) {
     return { version: 0, holdout: { percent: 0, bucket: null, inHoldout: false }, experiments: [], parameters: [] };
   }
   const { document } = active;
+  const bucketing = options.bucketing ?? true;
 
   const holdout = toBuckets(document.holdout.percent);
-  const holdoutBucket = holdout > 0 ? bucket(`holdout:${ctx.appId}:${ctx.userId}`) : null;
+  const holdoutBucket = bucketing && holdout > 0 ? bucket(`holdout:${ctx.appId}:${ctx.userId}`) : null;
   const inHoldout = holdoutBucket !== null && holdoutBucket < holdout;
 
   // 1. Experiments the user is in, and the values they set
@@ -129,6 +139,10 @@ export function explainConfig(
     if (!experiment) continue;
     if (experiment.status !== 'running') {
       experiments.push({ key, outcome: 'not_running', status: experiment.status });
+      continue;
+    }
+    if (!bucketing) {
+      experiments.push({ key, outcome: 'needs_user_id' });
       continue;
     }
 

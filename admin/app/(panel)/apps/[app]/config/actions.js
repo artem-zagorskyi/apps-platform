@@ -7,10 +7,10 @@ import { AdminApiError, adminApi } from '@/lib/admin-api';
 const configPath = (slug) => `/apps/${encodeURIComponent(slug)}/config`;
 
 // { ok, data } or { error, code }: the page shows errors without throwing
-async function act(slug, request) {
+async function act(slug, request, { revalidate = true } = {}) {
   try {
     const data = await request();
-    revalidatePath(`/apps/${encodeURIComponent(slug)}/config`, 'layout');
+    if (revalidate) revalidatePath(`/apps/${encodeURIComponent(slug)}/config`, 'layout');
     return { ok: true, data };
   } catch (err) {
     if (err instanceof AdminApiError) {
@@ -43,4 +43,9 @@ export async function restoreConfigVersion(slug, version, replace) {
   return act(slug, () =>
     adminApi(`${configPath(slug)}/versions/${version}/restore`, { method: 'POST', body: { replace: Boolean(replace) } }),
   );
+}
+
+// Which config a user gets and why. request: { config: 'live' | 'draft', user }
+export async function explainConfigForUser(slug, request) {
+  return act(slug, () => adminApi(`${configPath(slug)}/sandbox`, { method: 'POST', body: request }), { revalidate: false });
 }
