@@ -34,3 +34,5 @@ export const getOverview = cache(async () => (await adminApi('/overview')).apps)
 export const getConfigOverview = cache((slug) => readApp(slug, '/config'));
 export const getConfigVersions = cache((slug) => readApp(slug, '/config/versions'));
 export const compareConfigVersions = cache((slug, from, to) => readApp(slug, `/config/compare?from=${from}&to=${to}`));
+export const getExperimentsSummary = cache((slug) => readApp(slug, '/config/experiments/summary'));
+export const getExperimentResults = cache((slug, key) => readApp(slug, `/config/experiments/${encodeURIComponent(key)}/results`));

@@ -3,11 +3,12 @@
 import { Check, Clock, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { freeRange, largestFreeShare, showValue, valueProblem } from '@/lib/config-format';
+import { BUILT_IN_METRICS, freeRange, largestFreeShare, showValue, valueProblem } from '@/lib/config-format';
 import { cn } from '@/lib/utils';
 import { ConditionEditor } from './condition-editor';
 import { TesterList } from './experiment-dialogs';
@@ -38,6 +39,7 @@ function initialState(document, key, experiment) {
       share: '20',
       targeting: {},
       metric: null,
+      guardrails: [],
       testers: [],
     };
   }
@@ -53,6 +55,7 @@ function initialState(document, key, experiment) {
     share: String(Math.round((experiment.traffic.to - experiment.traffic.from) * 100) / 100),
     targeting: experiment.targeting ?? {},
     metric: experiment.primary_metric ?? null,
+    guardrails: (experiment.guardrail_metrics ?? []).map((g) => ({ metric: g.metric, lowerIsBetter: Boolean(g.lower_is_better) })),
     testers: Object.entries(experiment.forced ?? {}),
   };
 }
@@ -102,7 +105,12 @@ function problemsOf(state, { document, schema, editing, liveKeys }) {
     traffic.format.push(`No free ${share}% in ${state.layer}`);
   }
 
-  return [variants, parameters, traffic, { format: [], other: [] }, { format: [], other: [] }];
+  const metrics = { format: [], other: [] };
+  const chosen = [state.metric, ...state.guardrails.map((g) => g.metric)].filter(Boolean);
+  if (new Set(chosen).size !== chosen.length) metrics.other.push('A metric is chosen twice');
+  if (state.guardrails.some((g) => !g.metric)) metrics.other.push('Pick a metric for every guardrail or remove it');
+
+  return [variants, parameters, traffic, { format: [], other: [] }, metrics];
 }
 
 // Parameters another running experiment sets, and forced ones: both make this one pointless
@@ -147,6 +155,13 @@ function build(state, document, editing, status) {
       ]),
     ),
     ...(state.metric ? { primary_metric: state.metric } : {}),
+    ...(state.guardrails.some((g) => g.metric)
+      ? {
+          guardrail_metrics: state.guardrails
+            .filter((g) => g.metric)
+            .map((g) => ({ metric: g.metric, ...(g.lowerIsBetter ? { lower_is_better: true } : {}) })),
+        }
+      : {}),
     ...(forced.length ? { forced: Object.fromEntries(forced) } : {}),
   };
 }
@@ -215,6 +230,14 @@ export function ExperimentWizard({ document, schema, targetingFields, liveKeys, 
       patch.name !== undefined ? state.testers.map(([user, name]) => [user, name === before.name ? patch.name : name]) : state.testers;
     set({ variants, testers });
   }
+
+  // Built-in retention first, then the events of the tracking plan
+  const metricItems = [
+    ...BUILT_IN_METRICS.map((item) => ({ value: item.value, label: `${item.label} · ${item.description}` })),
+    ...events.map((event) => ({ value: event.name, label: event.name })),
+  ];
+  const setGuardrail = (index, patch) =>
+    set({ guardrails: state.guardrails.map((guardrail, i) => (i === index ? { ...guardrail, ...patch } : guardrail)) });
 
   function addParameter(name) {
     const value = currentValue(document, schema, name);
@@ -415,15 +438,53 @@ export function ExperimentWizard({ document, schema, targetingFields, liveKeys, 
 
     // Metrics & testers
     <div key="metrics" className="flex flex-col gap-4">
-      <Field label="Primary metric" description="The event the experiment is judged by; Results compares how many users of each variant did it">
+      <Field label="Primary metric" description="What the experiment is judged by: Results compares how many users of each variant reached it">
         <Select
-          mono
           value={state.metric ?? NO_METRIC}
           onValueChange={(value) => set({ metric: value === NO_METRIC ? null : value })}
-          items={[{ value: NO_METRIC, label: 'none yet' }, ...events.map((event) => ({ value: event.name, label: event.name }))]}
+          items={[{ value: NO_METRIC, label: 'none yet' }, ...metricItems]}
           triggerClassName="self-start"
         />
       </Field>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium">
+          Guardrails <span className="font-normal text-muted-foreground">· what must not get worse, up to 5</span>
+        </span>
+        {state.guardrails.map((guardrail, index) => (
+          <div key={index} className="flex items-center gap-2.5">
+            <Select
+              value={guardrail.metric}
+              placeholder="a metric"
+              onValueChange={(metric) => setGuardrail(index, { metric })}
+              items={metricItems}
+            />
+            <label className="flex items-center gap-1.5 text-xs">
+              <Checkbox checked={guardrail.lowerIsBetter} onCheckedChange={(lowerIsBetter) => setGuardrail(index, { lowerIsBetter })} />
+              lower is better
+            </label>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove guardrail ${index + 1}`}
+              onClick={() => set({ guardrails: state.guardrails.filter((_, i) => i !== index) })}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+        ))}
+        {state.guardrails.length < 5 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="self-start border-dashed"
+            onClick={() => set({ guardrails: [...state.guardrails, { metric: null, lowerIsBetter: false }] })}
+          >
+            <Plus />
+            Add guardrail
+          </Button>
+        )}
+        <Hint>For cancellations, crashes or opt-outs tick “lower is better”: a rise then shows as a loss.</Hint>
+      </div>
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-medium">Testers</span>
         <TesterList

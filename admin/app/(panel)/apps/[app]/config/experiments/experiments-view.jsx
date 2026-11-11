@@ -1,26 +1,66 @@
 'use client';
 
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { Ellipsis, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { DraftBar } from '@/components/config/draft-bar';
 import { IncreaseTrafficDialog, StopExperimentDialog, TestersDialog } from '@/components/config/experiment-dialogs';
 import { ExperimentWizard } from '@/components/config/experiment-wizard';
 import { LayersCard } from '@/components/config/layers-card';
 import { useDraftDocument } from '@/components/config/use-draft-document';
-import { Button } from '@/components/ui/button';
-import { dayNumber, trafficLimit, trafficShare, variantsText } from '@/lib/config-format';
+import { StatusBadge } from '@/components/data/status-badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu';
+import { dayNumber, liftText, metricLabel, trafficLimit, trafficShare, variantsText } from '@/lib/config-format';
 import { cn } from '@/lib/utils';
 
 const GROUPS = [
-  { status: 'running', label: 'Running', head: 'Primary metric' },
+  { status: 'running', label: 'Running', head: 'Leader on primary metric' },
   { status: 'draft', label: 'Draft', head: 'Plan' },
   { status: 'stopped', label: 'Stopped', head: 'Outcome' },
 ];
 
 const GRID =
-  'grid grid-cols-[minmax(14rem,1.4fr)_7rem_5.5rem_4.5rem_minmax(11rem,1.3fr)_19rem] items-center gap-3 px-4';
+  'grid grid-cols-[minmax(12rem,1.3fr)_6rem_4rem_4rem_4.5rem_5.5rem_minmax(11rem,1.4fr)_17rem] items-center gap-3 px-4';
+const numberFormat = new Intl.NumberFormat('en-US');
 
-const dateFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', day: 'numeric', month: 'short' });
+// Health of a started experiment from the results summary
+function Health({ summary }) {
+  if (!summary) return <span className="text-muted-foreground">—</span>;
+  if (summary.healthy === false) return <StatusBadge status="srm" title="Users did not split by the weights" />;
+  if (summary.healthy === true) return <StatusBadge status="ok" title="Traffic split as expected" />;
+  return <StatusBadge status="waiting" label="collecting" title="Not enough users to judge yet" />;
+}
+
+// "trial_first · +8.4% · 91% chance", and guardrails a variant hurts
+function Leader({ experiment, summary }) {
+  if (!experiment.primary_metric) return <span className="text-muted-foreground">no primary metric</span>;
+  const metric = <span className="truncate text-xs text-muted-foreground">{metricLabel(experiment.primary_metric)}</span>;
+  if (!summary?.leader) {
+    return (
+      <span className="flex min-w-0 flex-col leading-snug">
+        <span className="text-muted-foreground">Collecting data</span>
+        {metric}
+      </span>
+    );
+  }
+  const { variant, lift, chanceToWin } = summary.leader;
+  return (
+    <span className="flex min-w-0 flex-col leading-snug">
+      <span className="truncate">
+        <span className="font-mono text-xs">{variant}</span> · {liftText(lift)} · {Math.round(chanceToWin * 100)}% chance
+      </span>
+      {summary.hurt.length > 0 ? (
+        <span className="truncate text-xs text-destructive">
+          worse: {summary.hurt.map((item) => `${metricLabel(item.metric)} in ${item.variant}`).join(', ')}
+        </span>
+      ) : (
+        metric
+      )}
+    </span>
+  );
+}
+
 
 // What the draft does to the experiment once published, or null
 function pendingOf(base, current) {
@@ -41,8 +81,9 @@ function dayText(experiment) {
   return `day ${dayNumber(experiment.started_at)}`;
 }
 
-function Info({ group, base, current }) {
+function Info({ group, base, current, summary }) {
   const experiment = current ?? base;
+  if (group === 'running') return <Leader experiment={base} summary={summary} />;
   if (group === 'stopped') {
     const outcome = experiment.outcome;
     if (!outcome) return <span className="text-muted-foreground">—</span>;
@@ -67,11 +108,13 @@ function Info({ group, base, current }) {
   return (
     <span className="flex min-w-0 flex-col leading-snug">
       <span className={cn('truncate', experiment.primary_metric ? 'font-mono text-xs' : 'text-muted-foreground')}>
-        {experiment.primary_metric ?? 'no primary metric'}
+        {experiment.primary_metric ? metricLabel(experiment.primary_metric) : 'no primary metric'}
+        {experiment.guardrail_metrics?.length ? (
+          <span className="font-sans text-muted-foreground"> + {experiment.guardrail_metrics.length} guardrail{experiment.guardrail_metrics.length === 1 ? '' : 's'}</span>
+        ) : null}
       </span>
       <span className="truncate text-xs text-muted-foreground">
         {conditions ? `${conditions} targeting condition${conditions === 1 ? '' : 's'}` : 'all users'}
-        {group === 'running' && base?.started_at && ` · since ${dateFormat.format(new Date(base.started_at))}`}
       </span>
     </span>
   );
@@ -82,7 +125,8 @@ function Info({ group, base, current }) {
  * events: [{ name, category }] for the primary metric; dailyUsers: DAU or null
  * actions: bound server actions { save, discard, rebase }
  */
-export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewHref, actions }) {
+export function ExperimentsView({ overview, canEdit, events, dailyUsers, summary = [], resultsHref, reviewHref, actions }) {
+  const summaryOf = (key) => summary.find((item) => item.key === key) ?? null;
   const { document, save } = useDraftDocument(overview, actions.save);
   const [dialog, setDialog] = useState(null);
   const liveExperiments = overview.live?.document.experiments ?? {};
@@ -98,17 +142,27 @@ export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewH
   });
 
   function actionsOf({ key, base, current }) {
-    if (!canEdit || !current) return null;
-    const testers = (
-      <Button variant="outline" size="sm" onClick={() => setDialog({ kind: 'testers', key })}>
-        Testers{current.forced ? ` · ${Object.keys(current.forced).length}` : ''}
-      </Button>
+    const results = base?.started_at && (
+      <Link href={`${resultsHref}?experiment=${encodeURIComponent(key)}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+        Results
+      </Link>
+    );
+    if (!canEdit || !current) return results;
+    const testers = `Testers${current.forced ? ` · ${Object.keys(current.forced).length}` : ''}`;
+    // Less frequent actions, so a row keeps one line
+    const more = (items) => (
+      <Menu>
+        <MenuTrigger aria-label={`More for ${key}`} className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}>
+          <Ellipsis />
+        </MenuTrigger>
+        <MenuContent align="end">{items}</MenuContent>
+      </Menu>
     );
 
     if (current.status === 'running' && base?.status === 'running') {
       return (
         <>
-          {testers}
+          {results}
           {trafficLimit(document, key) > current.traffic.to && (
             <Button variant="outline" size="sm" onClick={() => setDialog({ kind: 'traffic', key })}>
               Increase traffic
@@ -117,6 +171,7 @@ export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewH
           <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive-soft" onClick={() => setDialog({ kind: 'stop', key })}>
             Stop
           </Button>
+          {more(<MenuItem onClick={() => setDialog({ kind: 'testers', key })}>{testers}</MenuItem>)}
         </>
       );
     }
@@ -130,30 +185,33 @@ export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewH
     if (current.status === 'draft') {
       return (
         <>
-          {testers}
           <Button variant="outline" size="sm" onClick={() => setDialog({ kind: 'edit', key })}>
             <Pencil />
             Edit
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Delete ${key}`}
-            onClick={() => {
-              const experiments = { ...document.experiments };
-              delete experiments[key];
-              save({ ...document, experiments }, `${key} deleted in the draft`);
-            }}
-          >
-            <Trash2 />
-          </Button>
           <Button size="sm" onClick={() => setExperiment(key, { ...current, status: 'running' }, `${key} starts when you publish`)}>
             Start
           </Button>
+          {more(
+            <>
+              <MenuItem onClick={() => setDialog({ kind: 'testers', key })}>{testers}</MenuItem>
+              <MenuItem
+                destructive
+                onClick={() => {
+                  const experiments = { ...document.experiments };
+                  delete experiments[key];
+                  save({ ...document, experiments }, `${key} deleted in the draft`);
+                }}
+              >
+                <Trash2 />
+                Delete
+              </MenuItem>
+            </>,
+          )}
         </>
       );
     }
-    return null;
+    return results;
   }
 
   const open = dialog && (dialog.kind === 'new' || document.experiments[dialog.key]);
@@ -197,12 +255,14 @@ export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewH
               <span className="text-xs text-muted-foreground">{items.length}</span>
             </div>
             <div className="overflow-x-auto">
-              <div className="min-w-[62rem]">
+              <div className="min-w-[70rem]">
                 <div className={cn(GRID, 'h-8 border-t border-border bg-muted text-xs font-medium text-muted-foreground')}>
                   <span>Experiment</span>
                   <span>Layer</span>
                   <span className="text-right">Traffic</span>
                   <span className="text-right">Day</span>
+                  <span className="text-right">Exposed</span>
+                  <span>Health</span>
                   <span>{head}</span>
                   <span />
                 </div>
@@ -233,7 +293,11 @@ export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewH
                         )}
                       </span>
                       <span className="text-right text-muted-foreground">{dayText(row.base ?? experiment)}</span>
-                      <Info group={row.group} base={row.base} current={row.current} />
+                      <span className="text-right">
+                        {summaryOf(row.key) ? numberFormat.format(summaryOf(row.key).users) : <span className="text-muted-foreground">—</span>}
+                      </span>
+                      <span>{row.group === 'draft' ? <span className="text-muted-foreground">—</span> : <Health summary={summaryOf(row.key)} />}</span>
+                      <Info group={row.group} base={row.base} current={row.current} summary={summaryOf(row.key)} />
                       <span className="flex flex-wrap items-center justify-end gap-1.5">
                         {actionsOf(row)}
                       </span>

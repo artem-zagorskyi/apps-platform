@@ -169,3 +169,33 @@ export function largestFreeShare(document, layer, except = null) {
 export function dayNumber(since, until = new Date()) {
   return Math.floor((new Date(until).getTime() - new Date(since).getTime()) / 86_400_000) + 1;
 }
+
+// Built-in metrics that need no event, as the experiment document names them
+export const BUILT_IN_METRICS = [
+  { value: 'retention:d1', label: 'D1 retention', description: 'came back the day after entering' },
+  { value: 'retention:d7', label: 'D7 retention', description: 'came back on day 7 after entering' },
+];
+
+// "D1 retention" for built-in metrics, the event name otherwise
+export function metricLabel(metric) {
+  return BUILT_IN_METRICS.find((item) => item.value === metric)?.label ?? metric;
+}
+
+export function percentText(value, digits = 1) {
+  return value === null || value === undefined ? '—' : `${(value * 100).toFixed(digits)}%`;
+}
+
+// "+8.4%" / "−1.2%"
+export function liftText(lift) {
+  const text = `${(Math.abs(lift) * 100).toFixed(1)}%`;
+  return lift > 0 ? `+${text}` : lift < 0 ? `−${text}` : text;
+}
+
+// Is the change clearly good, clearly bad, or not clear yet
+export function verdictOf(comparison, lowerIsBetter = false) {
+  if (!comparison) return 'none';
+  const up = comparison.low > 0;
+  const down = comparison.high < 0;
+  if (!up && !down) return 'unclear';
+  return up !== lowerIsBetter ? 'better' : 'worse';
+}

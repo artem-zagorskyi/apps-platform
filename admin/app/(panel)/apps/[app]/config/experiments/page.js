@@ -1,4 +1,4 @@
-import { getApp, getConfigOverview, getOverview, getTrackingPlan } from '@/lib/apps';
+import { getApp, getConfigOverview, getExperimentsSummary, getOverview, getTrackingPlan } from '@/lib/apps';
 import { requireSession } from '@/lib/session';
 import { discardConfigDraft, rebaseConfigDraft, saveConfigDraft } from '../actions';
 import { ExperimentsView } from './experiments-view';
@@ -15,13 +15,15 @@ function eventsOf(trackingPlan) {
 
 export default async function ConfigExperimentsPage({ params }) {
   const { app: slug } = await params;
-  const [session, { app }, overview, trackingPlan, apps] = await Promise.all([
+  const [session, { app }, overview, trackingPlan, apps, summary] = await Promise.all([
     requireSession(),
     getApp(slug),
     getConfigOverview(slug),
     getTrackingPlan(slug),
     // Only for the traffic estimate: the page works without it
     getOverview().catch(() => []),
+    // Exposed users, health and leaders; the list works without them
+    getExperimentsSummary(slug).catch(() => ({ experiments: [] })),
   ]);
   const canEdit = session.roles.some((grant) => EDITORS.includes(grant.role) && (grant.appId === null || grant.appId === app.id));
   const dailyUsers = apps.find((item) => item.slug === app.slug)?.metrics?.dau?.value ?? null;
@@ -32,6 +34,8 @@ export default async function ConfigExperimentsPage({ params }) {
       canEdit={canEdit}
       events={eventsOf(trackingPlan)}
       dailyUsers={dailyUsers}
+      summary={summary.experiments}
+      resultsHref={`/apps/${encodeURIComponent(app.slug)}/config/results`}
       reviewHref={`/apps/${encodeURIComponent(app.slug)}/config/parameters?review=1`}
       actions={{
         save: saveConfigDraft.bind(null, app.slug),
