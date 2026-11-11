@@ -1,9 +1,10 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { DraftBar } from '@/components/config/draft-bar';
 import { IncreaseTrafficDialog, StopExperimentDialog, TestersDialog } from '@/components/config/experiment-dialogs';
+import { ExperimentWizard } from '@/components/config/experiment-wizard';
 import { LayersCard } from '@/components/config/layers-card';
 import { useDraftDocument } from '@/components/config/use-draft-document';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ const GROUPS = [
 ];
 
 const GRID =
-  'grid grid-cols-[minmax(11rem,1.3fr)_7rem_5.5rem_4.5rem_minmax(11rem,1.4fr)_17rem] items-center gap-3 px-4';
+  'grid grid-cols-[minmax(14rem,1.4fr)_7rem_5.5rem_4.5rem_minmax(11rem,1.3fr)_19rem] items-center gap-3 px-4';
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', day: 'numeric', month: 'short' });
 
@@ -77,10 +78,11 @@ function Info({ group, base, current }) {
 }
 
 /**
- * overview: { live, draft } from the admin API
+ * overview: { live, draft, schema, conditionFields } from the admin API
+ * events: [{ name, category }] for the primary metric; dailyUsers: DAU or null
  * actions: bound server actions { save, discard, rebase }
  */
-export function ExperimentsView({ overview, canEdit, reviewHref, actions }) {
+export function ExperimentsView({ overview, canEdit, events, dailyUsers, reviewHref, actions }) {
   const { document, save } = useDraftDocument(overview, actions.save);
   const [dialog, setDialog] = useState(null);
   const liveExperiments = overview.live?.document.experiments ?? {};
@@ -129,6 +131,10 @@ export function ExperimentsView({ overview, canEdit, reviewHref, actions }) {
       return (
         <>
           {testers}
+          <Button variant="outline" size="sm" onClick={() => setDialog({ kind: 'edit', key })}>
+            <Pencil />
+            Edit
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -150,12 +156,21 @@ export function ExperimentsView({ overview, canEdit, reviewHref, actions }) {
     return null;
   }
 
-  const open = dialog && document.experiments[dialog.key];
+  const open = dialog && (dialog.kind === 'new' || document.experiments[dialog.key]);
   const close = () => setDialog(null);
 
   return (
     <div className="flex flex-col gap-4">
       <DraftBar draft={overview.draft} liveVersion={overview.live?.version ?? null} canEdit={canEdit} actions={actions} reviewHref={reviewHref} />
+
+      {canEdit && (
+        <div className="-mb-1 flex justify-end">
+          <Button onClick={() => setDialog({ kind: 'new' })}>
+            <Plus />
+            New experiment
+          </Button>
+        </div>
+      )}
 
       <LayersCard
         document={document}
@@ -197,7 +212,14 @@ export function ExperimentsView({ overview, canEdit, reviewHref, actions }) {
                   return (
                     <div key={row.key} className={cn(GRID, 'min-h-12 border-t border-border py-1.5 text-[0.8125rem] tabular-nums')}>
                       <span className="flex min-w-0 flex-col leading-snug" title={experiment.description}>
-                        <span className="truncate font-mono text-xs font-medium">{row.key}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-mono text-xs font-medium">{row.key}</span>
+                          {row.pending && (
+                            <span className="shrink-0 whitespace-nowrap rounded-[0.25rem] bg-primary-soft px-1.5 py-0.5 text-[0.6875rem] font-medium text-primary-soft-foreground">
+                              {row.pending}
+                            </span>
+                          )}
+                        </span>
                         <span className="truncate text-xs text-muted-foreground">{variantsText(experiment)}</span>
                       </span>
                       <span className="truncate font-mono text-xs text-muted-foreground">{experiment.layer}</span>
@@ -213,11 +235,6 @@ export function ExperimentsView({ overview, canEdit, reviewHref, actions }) {
                       <span className="text-right text-muted-foreground">{dayText(row.base ?? experiment)}</span>
                       <Info group={row.group} base={row.base} current={row.current} />
                       <span className="flex flex-wrap items-center justify-end gap-1.5">
-                        {row.pending && (
-                          <span className="whitespace-nowrap rounded-[0.3125rem] bg-primary-soft px-2 py-1 text-xs font-medium text-primary-soft-foreground">
-                            {row.pending}
-                          </span>
-                        )}
                         {actionsOf(row)}
                       </span>
                     </div>
@@ -229,6 +246,19 @@ export function ExperimentsView({ overview, canEdit, reviewHref, actions }) {
         );
       })}
 
+      {open && (dialog.kind === 'new' || dialog.kind === 'edit') && (
+        <ExperimentWizard
+          document={document}
+          schema={overview.schema ?? { parameters: {} }}
+          targetingFields={overview.conditionFields.targeting}
+          liveKeys={Object.keys(liveExperiments)}
+          events={events}
+          dailyUsers={dailyUsers}
+          editing={dialog.kind === 'edit' ? dialog.key : null}
+          onClose={close}
+          onSave={(key, experiment, title) => setExperiment(key, experiment, title)}
+        />
+      )}
       {open && dialog.kind === 'traffic' && (
         <IncreaseTrafficDialog
           document={document}

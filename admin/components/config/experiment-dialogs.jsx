@@ -177,19 +177,63 @@ export function StopExperimentDialog({ document, experimentKey, onSave, onClose 
   );
 }
 
-/** Testers always get the variant set here, even outside traffic and targeting; they are not counted in results */
-export function TestersDialog({ document, experimentKey, readOnly, onSave, onClose }) {
-  const experiment = document.experiments[experimentKey];
-  const variantItems = Object.keys(experiment.variants)
-    .sort()
-    .map((name) => ({ value: name, label: name }));
-  const [rows, setRows] = useState(() => Object.entries(experiment.forced ?? {}));
+/** Testers and their variants. rows: [[userId, variant]]; onChange(rows) */
+export function TesterList({ variants, rows, onChange, readOnly }) {
+  const variantItems = [...variants].sort().map((name) => ({ value: name, label: name }));
   const [userId, setUserId] = useState('');
   const [variant, setVariant] = useState(variantItems[0]?.value ?? null);
-  const [saving, save] = useSaving(onSave, onClose);
+  const chosen = variantItems.some((item) => item.value === variant) ? variant : (variantItems[0]?.value ?? null);
 
   const id = userId.trim().toLowerCase();
   const problem = !id ? null : !UUID.test(id) ? 'A user ID looks like 019a4c2e-…' : rows.some(([known]) => known === id) ? 'Already a tester' : null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {rows.length === 0 && <span className="text-muted-foreground">No testers yet.</span>}
+      {rows.map(([known, picked], index) => (
+        <div key={known} className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate font-mono text-xs">{known}</span>
+          <Select
+            mono
+            value={picked}
+            items={variantItems}
+            onValueChange={(next) => onChange(rows.map((row, i) => (i === index ? [known, next] : row)))}
+          />
+          {!readOnly && (
+            <Button variant="ghost" size="icon-sm" aria-label={`Remove ${known}`} onClick={() => onChange(rows.filter((_, i) => i !== index))}>
+              <Trash2 />
+            </Button>
+          )}
+        </div>
+      ))}
+      {!readOnly && variantItems.length > 0 && (
+        <div className="mt-1 flex items-start gap-2 border-t border-border pt-3">
+          <Field className="flex-1" error={problem}>
+            <Input mono value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="User ID from Support or the Sandbox" />
+          </Field>
+          <Select mono value={chosen} items={variantItems} onValueChange={setVariant} />
+          <Button
+            variant="outline"
+            disabled={!id || Boolean(problem)}
+            onClick={() => {
+              onChange([...rows, [id, chosen]]);
+              setUserId('');
+            }}
+          >
+            <Plus />
+            Add
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Testers always get the variant set here, even outside traffic and targeting; they are not counted in results */
+export function TestersDialog({ document, experimentKey, readOnly, onSave, onClose }) {
+  const experiment = document.experiments[experimentKey];
+  const [rows, setRows] = useState(() => Object.entries(experiment.forced ?? {}));
+  const [saving, save] = useSaving(onSave, onClose);
 
   function apply() {
     const next = { ...experiment };
@@ -221,50 +265,13 @@ export function TestersDialog({ document, experimentKey, readOnly, onSave, onClo
           )
         }
       >
-        <div className="flex flex-col gap-2">
-          {rows.length === 0 && <span className="text-muted-foreground">No testers yet.</span>}
-          {rows.map(([known, chosen], index) => (
-            <div key={known} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-xs">{known}</span>
-              <Select
-                mono
-                value={chosen}
-                items={variantItems}
-                onValueChange={(next) => setRows(rows.map((row, i) => (i === index ? [known, next] : row)))}
-              />
-              {!readOnly && (
-                <Button variant="ghost" size="icon-sm" aria-label={`Remove ${known}`} onClick={() => setRows(rows.filter((_, i) => i !== index))}>
-                  <Trash2 />
-                </Button>
-              )}
-            </div>
-          ))}
-          {!readOnly && (
-            <div className="mt-2 flex items-start gap-2 border-t border-border pt-3">
-              <Field className="flex-1" error={problem}>
-                <Input mono value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="User ID from Support or the Sandbox" />
-              </Field>
-              <Select mono value={variant} items={variantItems} onValueChange={setVariant} />
-              <Button
-                variant="outline"
-                disabled={!id || Boolean(problem)}
-                onClick={() => {
-                  setRows([...rows, [id, variant]]);
-                  setUserId('');
-                }}
-              >
-                <Plus />
-                Add
-              </Button>
-            </div>
-          )}
-          {experiment.status === 'stopped' && (
-            <span className="flex items-center gap-1.5 text-xs text-warning">
-              <TriangleAlert className="size-3.5" />
-              The experiment is stopped: testers no longer get anything from it.
-            </span>
-          )}
-        </div>
+        <TesterList variants={Object.keys(experiment.variants)} rows={rows} onChange={setRows} readOnly={readOnly} />
+        {experiment.status === 'stopped' && (
+          <span className="mt-2 flex items-center gap-1.5 text-xs text-warning">
+            <TriangleAlert className="size-3.5" />
+            The experiment is stopped: testers no longer get anything from it.
+          </span>
+        )}
       </DialogContent>
     </Dialog>
   );

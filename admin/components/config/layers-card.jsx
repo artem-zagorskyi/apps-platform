@@ -24,6 +24,7 @@ function Segment({ from, to, kind, label, title }) {
         kind === 'draft' && 'border-[1.5px] border-dashed border-muted-foreground text-muted-foreground',
         kind === 'holdout' && 'bg-muted-foreground text-card',
         kind === 'free' && 'text-muted-foreground',
+        kind === 'new' && 'bg-primary text-primary-foreground',
       )}
     >
       {label}
@@ -31,11 +32,11 @@ function Segment({ from, to, kind, label, title }) {
   );
 }
 
-// Busy and free stretches of one layer, left to right
-function segmentsOf(document, layer) {
+// Busy and free stretches of one layer; `except` is left out, `preview` drawn on top
+function segmentsOf(document, layer, except, preview) {
   const segments = [];
   let at = 0;
-  for (const [key, experiment] of layerOccupants(document, layer)) {
+  for (const [key, experiment] of layerOccupants(document, layer, except)) {
     const { from, to } = experiment.traffic;
     if (from > at) segments.push({ from: at, to: from, kind: 'free', label: `free ${pct(from - at)}` });
     segments.push({
@@ -48,7 +49,28 @@ function segmentsOf(document, layer) {
     at = Math.max(at, to);
   }
   if (at < 100) segments.push({ from: at, to: 100, kind: 'free', label: `free ${pct(100 - at)}` });
-  return segments;
+  if (!preview) return segments;
+  // Free stretches lose the part the new experiment takes
+  const free = (from, to) => (to - from > 0 ? [{ from, to, kind: 'free', label: `free ${pct(to - from)}` }] : []);
+  return [
+    ...segments.flatMap((segment) =>
+      segment.kind !== 'free' || segment.to <= preview.from || segment.from >= preview.to
+        ? [segment]
+        : [...free(segment.from, preview.from), ...free(preview.to, segment.to)],
+    ),
+    { ...preview, kind: 'new' },
+  ];
+}
+
+/** One layer as a bar. except: an experiment to leave out; preview: { from, to, label } of a new one */
+export function LayerBar({ document, layer, except = null, preview = null, className }) {
+  return (
+    <div className={cn('relative h-7 overflow-hidden rounded-md border border-border bg-muted', className)}>
+      {segmentsOf(document, layer, except, preview).map((segment) => (
+        <Segment key={`${segment.kind}-${segment.from}`} {...segment} />
+      ))}
+    </div>
+  );
 }
 
 function Row({ name, meta, children, action }) {
@@ -58,7 +80,7 @@ function Row({ name, meta, children, action }) {
         <span className="truncate font-mono text-xs font-medium">{name}</span>
         <span className="text-[0.6875rem] text-muted-foreground">{meta}</span>
       </span>
-      <div className="relative h-7 overflow-hidden rounded-md border border-border bg-muted">{children}</div>
+      {children}
       <span>{action}</span>
     </div>
   );
@@ -133,10 +155,12 @@ export function LayersCard({ document, canEdit, onAddLayer, onRemoveLayer }) {
         </div>
 
         <Row name="holdout" meta="never in experiments">
-          {holdout > 0 && (
-            <Segment from={0} to={holdout} kind="holdout" label={pct(holdout)} title={`Holdout: ${pct(holdout)} of users never get experiments`} />
-          )}
-          <Segment from={holdout} to={100} kind="free" label="available to all layers" />
+          <div className="relative h-7 overflow-hidden rounded-md border border-border bg-muted">
+            {holdout > 0 && (
+              <Segment from={0} to={holdout} kind="holdout" label={pct(holdout)} title={`Holdout: ${pct(holdout)} of users never get experiments`} />
+            )}
+            <Segment from={holdout} to={100} kind="free" label="available to all layers" />
+          </div>
         </Row>
 
         {document.layers.map((layer) => {
@@ -157,9 +181,7 @@ export function LayersCard({ document, canEdit, onAddLayer, onRemoveLayer }) {
                 )
               }
             >
-              {segmentsOf(document, layer).map((segment) => (
-                <Segment key={`${segment.kind}-${segment.from}`} {...segment} />
-              ))}
+              <LayerBar document={document} layer={layer} />
             </Row>
           );
         })}

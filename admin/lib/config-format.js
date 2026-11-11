@@ -142,14 +142,27 @@ export function trafficLimit(document, key) {
   return next.length ? Math.min(...next) : 100;
 }
 
-// The first free stretch of a layer that fits `share` percent, or null
-export function freeRange(document, layer, share) {
+// Free stretches of a layer, left to right; `except` is ignored (the experiment being edited)
+export function freeGaps(document, layer, except = null) {
+  const gaps = [];
   let at = 0;
-  for (const [, other] of layerOccupants(document, layer)) {
-    if (other.traffic.from - at >= share) break;
+  for (const [, other] of layerOccupants(document, layer, except)) {
+    if (other.traffic.from > at) gaps.push({ from: at, to: other.traffic.from });
     at = Math.max(at, other.traffic.to);
   }
-  return at + share <= 100 ? { from: at, to: Math.round((at + share) * 100) / 100 } : null;
+  if (at < 100) gaps.push({ from: at, to: 100 });
+  return gaps;
+}
+
+// The first free stretch of a layer that fits `share` percent, or null
+export function freeRange(document, layer, share, except = null) {
+  const gap = freeGaps(document, layer, except).find((item) => item.to - item.from >= share);
+  return gap ? { from: gap.from, to: Math.round((gap.from + share) * 100) / 100 } : null;
+}
+
+// The biggest share a new experiment can take in the layer
+export function largestFreeShare(document, layer, except = null) {
+  return Math.max(0, ...freeGaps(document, layer, except).map((gap) => Math.round((gap.to - gap.from) * 100) / 100));
 }
 
 // Whole days since an ISO time, counting the first day as day 1
