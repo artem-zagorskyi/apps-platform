@@ -99,3 +99,15 @@ export function compareConversion(control: Conversion, variant: Conversion): Com
 
   return { lift, low: lift - Z_95 * se, high: lift + Z_95 * se, chanceToWin: normalCdf(lift / se) };
 }
+
+// Power 80%: the chance to see a real effect of the planned size
+const Z_80 = 0.8416212335729143;
+
+// Users per variant needed to notice a relative change of `minLift` in a
+// conversion rate, two-sided at 95% with 80% power. Null for rates of 0 or 1.
+export function sampleSizePerVariant(rate: number, minLift = 0.1): number | null {
+  if (!(rate > 0 && rate < 1)) return null;
+  const other = Math.min(rate * (1 + minLift), 0.9999);
+  const spread = rate * (1 - rate) + other * (1 - other);
+  return Math.ceil(((Z_95 + Z_80) ** 2 * spread) / (other - rate) ** 2);
+}

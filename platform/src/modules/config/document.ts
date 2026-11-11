@@ -36,6 +36,12 @@ const parameterConfigSchema = z.strictObject({
   value: z.unknown().optional(),
 });
 
+// Built-in metrics that need no event: came back on day 1 or 7 after the first exposure
+export const BUILT_IN_METRICS = ['retention:d1', 'retention:d7'] as const;
+
+// An event name from the tracking plan, or a built-in metric
+const metricSchema = z.union([nameSchema, z.enum(BUILT_IN_METRICS)]);
+
 const experimentSchema = z.strictObject({
   description: z.string().min(1),
   status: z.enum(['draft', 'running', 'stopped']),
@@ -50,8 +56,13 @@ const experimentSchema = z.strictObject({
       values: z.record(nameSchema, z.unknown()),
     }),
   ),
-  // Event the experiment is judged by
-  primary_metric: nameSchema.optional(),
+  // What the experiment is judged by
+  primary_metric: metricSchema.optional(),
+  // What must not get worse; lower_is_better for events like cancellations
+  guardrail_metrics: z
+    .array(z.strictObject({ metric: metricSchema, lower_is_better: z.boolean().optional() }))
+    .max(5)
+    .optional(),
   // Testers: user id -> variant
   forced: z.record(z.uuid(), nameSchema).optional(),
   // Why it was stopped and, when a variant won, the variant whose values
@@ -181,6 +192,13 @@ export function documentErrors(document: ConfigDocument, schema: ParameterSchema
       }
     }
 
+    const metrics = [experiment.primary_metric, ...(experiment.guardrail_metrics ?? []).map((g) => g.metric)].filter(
+      (metric) => metric !== undefined,
+    );
+    if (new Set(metrics).size !== metrics.length) {
+      errors.push(`${path}.guardrail_metrics: a metric is listed twice or is also the primary metric`);
+    }
+
     if (experiment.outcome && experiment.status !== 'stopped') {
       errors.push(`${path}.outcome: only a stopped experiment has an outcome`);
     }
@@ -251,6 +269,9 @@ export function lifecycleErrors(previous: ConfigDocument | null, next: ConfigDoc
     }
     if (experiment.primary_metric !== before.primary_metric) {
       errors.push(`${path}.primary_metric: cannot change after the start`);
+    }
+    if (!sameJson(experiment.guardrail_metrics ?? [], before.guardrail_metrics ?? [])) {
+      errors.push(`${path}.guardrail_metrics: cannot change after the start`);
     }
     if (experiment.traffic.from !== before.traffic.from) {
       errors.push(`${path}.traffic.from: cannot change after the start`);

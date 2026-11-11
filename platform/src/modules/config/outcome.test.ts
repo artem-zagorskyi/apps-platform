@@ -48,3 +48,24 @@ describe('experiment outcome', () => {
     ]);
   });
 });
+
+describe('guardrail metrics', () => {
+  it('take events and built-in metrics, once each, and are fixed after the start', () => {
+    const guarded = doc({
+      status: 'running',
+      primary_metric: 'purchase',
+      guardrail_metrics: [{ metric: 'retention:d1' }, { metric: 'subscription_cancelled', lower_is_better: true }],
+    });
+    expect(documentErrors(guarded, SCHEMA)).toEqual([]);
+    expect(lifecycleErrors(guarded, guarded)).toEqual([]);
+
+    const changed = doc({ status: 'running', primary_metric: 'purchase', guardrail_metrics: [{ metric: 'retention:d1' }] });
+    expect(lifecycleErrors(guarded, changed)).toEqual(['experiments.test.guardrail_metrics: cannot change after the start']);
+
+    const twice = doc({ status: 'draft', primary_metric: 'purchase', guardrail_metrics: [{ metric: 'purchase' }] });
+    expect(documentErrors(twice, SCHEMA)).toEqual([
+      'experiments.test.guardrail_metrics: a metric is listed twice or is also the primary metric',
+    ]);
+    expect(() => doc({ status: 'draft', primary_metric: 'retention:d30' })).toThrow();
+  });
+});
