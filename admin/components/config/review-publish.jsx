@@ -11,6 +11,10 @@ const RULES_PART = /^rules$/;
 // Rules are long: their count says enough in the summary
 function shown(part, value) {
   if (value === undefined) return null;
+  // An experiment's outcome: the reason, and the variant made the normal config
+  if (part === 'outcome' && value && typeof value === 'object') {
+    return `${value.applied_variant ? `${value.applied_variant} applied · ` : ''}${value.reason}`;
+  }
   if (part && RULES_PART.test(part) && Array.isArray(value)) return `${value.length} rule${value.length === 1 ? '' : 's'}`;
   if (part === 'status' || part === null) return typeof value === 'string' ? value : showValue(value);
   return showValue(value);

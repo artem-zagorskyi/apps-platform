@@ -89,3 +89,70 @@ export function splitChangePath(path) {
   if (head === 'holdout') return { group: 'holdout', part: null, mono: false };
   return { group: head, part: null, mono: false };
 }
+
+// Why the user is or is not in an experiment, from the server's explanation
+export function experimentOutcome(decision, holdout) {
+  switch (decision.outcome) {
+    case 'assigned':
+      return `variant ${decision.variant}, bucket ${decision.bucket}`;
+    case 'forced':
+      return `tester, always gets variant ${decision.variant}`;
+    case 'holdout':
+      return `in the holdout (${holdout.percent}% of users get no experiments)`;
+    case 'outside_traffic':
+      return `outside its traffic: bucket ${decision.bucket} in the layer, the test uses ${decision.from}–${decision.to}%`;
+    case 'not_targeted':
+      return `not targeted: ${decision.problems.join('; ')}`;
+    case 'needs_user_id':
+      return 'placing someone in an experiment needs a user ID';
+    case 'no_variant':
+      return 'variant weights do not add up to 100';
+    case 'not_running':
+      return decision.status;
+    default:
+      return decision.outcome;
+  }
+}
+
+// "control / trial_first · 50 / 50"
+export function variantsText(experiment) {
+  const variants = Object.entries(experiment.variants ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  if (variants.length === 0) return 'no variants yet';
+  return `${variants.map(([name]) => name).join(' / ')} · ${variants.map(([, v]) => v.weight).join(' / ')}`;
+}
+
+// Share of the layer in percent, rounded to the 0.01% buckets
+export function trafficShare(experiment) {
+  return Math.round((experiment.traffic.to - experiment.traffic.from) * 100) / 100;
+}
+
+// Experiments that hold part of a layer: running ones and drafts waiting to start
+export function layerOccupants(document, layer, except = null) {
+  return Object.entries(document?.experiments ?? {})
+    .filter(([key, e]) => key !== except && e.layer === layer && (e.status === 'running' || e.status === 'draft'))
+    .sort(([, a], [, b]) => a.traffic.from - b.traffic.from);
+}
+
+// How far the experiment's traffic can grow without touching the next one in its layer
+export function trafficLimit(document, key) {
+  const experiment = document.experiments[key];
+  const next = layerOccupants(document, experiment.layer, key)
+    .map(([, other]) => other.traffic.from)
+    .filter((from) => from >= experiment.traffic.to);
+  return next.length ? Math.min(...next) : 100;
+}
+
+// The first free stretch of a layer that fits `share` percent, or null
+export function freeRange(document, layer, share) {
+  let at = 0;
+  for (const [, other] of layerOccupants(document, layer)) {
+    if (other.traffic.from - at >= share) break;
+    at = Math.max(at, other.traffic.to);
+  }
+  return at + share <= 100 ? { from: at, to: Math.round((at + share) * 100) / 100 } : null;
+}
+
+// Whole days since an ISO time, counting the first day as day 1
+export function dayNumber(since, until = new Date()) {
+  return Math.floor((new Date(until).getTime() - new Date(since).getTime()) / 86_400_000) + 1;
+}

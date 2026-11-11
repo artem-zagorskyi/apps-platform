@@ -54,6 +54,14 @@ const experimentSchema = z.strictObject({
   primary_metric: nameSchema.optional(),
   // Testers: user id -> variant
   forced: z.record(z.uuid(), nameSchema).optional(),
+  // Why it was stopped and, when a variant won, the variant whose values
+  // became the parameters' server values. Only on stopped experiments.
+  outcome: z
+    .strictObject({
+      reason: z.string().trim().min(3).max(500),
+      applied_variant: nameSchema.optional(),
+    })
+    .optional(),
   // Set by the server on publish; values in an uploaded file are ignored
   started_at: z.iso.datetime().optional(),
   stopped_at: z.iso.datetime().optional(),
@@ -173,6 +181,14 @@ export function documentErrors(document: ConfigDocument, schema: ParameterSchema
       }
     }
 
+    if (experiment.outcome && experiment.status !== 'stopped') {
+      errors.push(`${path}.outcome: only a stopped experiment has an outcome`);
+    }
+    const applied = experiment.outcome?.applied_variant;
+    if (applied !== undefined && !own(experiment.variants, applied)) {
+      errors.push(`${path}.outcome.applied_variant: no variant ${applied}`);
+    }
+
     for (const [userId, variantKey] of Object.entries(experiment.forced ?? {})) {
       if (!own(experiment.variants, variantKey)) {
         errors.push(`${path}.forced.${userId}: no variant ${variantKey}`);
@@ -247,6 +263,9 @@ export function lifecycleErrors(previous: ConfigDocument | null, next: ConfigDoc
     }
     if (!stillRunning && experiment.traffic.to !== before.traffic.to) {
       errors.push(`${path}.traffic.to: cannot change once stopped`);
+    }
+    if (before.status === 'stopped' && !sameJson(experiment.outcome ?? null, before.outcome ?? null)) {
+      errors.push(`${path}.outcome: cannot change once stopped`);
     }
   }
 
