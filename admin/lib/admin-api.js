@@ -1,5 +1,6 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export const SESSION_COOKIE = 'admin_session';
 
@@ -41,7 +42,7 @@ export async function adminApi(path, { method = 'GET', body, auth = true } = {})
   if (auth) {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
     if (!token) {
-      throw new AdminApiError(401, 'unauthorized', 'Not signed in');
+      redirect('/login');
     }
     requestHeaders.authorization = `Bearer ${token}`;
   }
@@ -65,6 +66,8 @@ export async function adminApi(path, { method = 'GET', body, auth = true } = {})
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    // An expired or revoked session: back to sign-in instead of an error page
+    if (response.status === 401 && requestHeaders.authorization) redirect('/login');
     throw new AdminApiError(
       response.status,
       data?.error ?? 'request_error',
