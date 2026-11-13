@@ -9,7 +9,8 @@ import {
   rebaseDraft,
   saveDraft,
 } from '../config/drafts-service.js';
-import { explainForSandbox } from '../config/sandbox.js';
+import { explainForSandbox, personalTraitsFormat } from '../config/sandbox.js';
+import { SIGN_IN_METHODS } from '../config/conditions.js';
 import { getConfigVersion } from '../config/versions-service.js';
 import { AppError } from '../../core/errors.js';
 import { findAppForAdmin } from './apps-service.js';
@@ -39,6 +40,10 @@ const sandboxBody = z.object({
       appVersion: z.string().regex(/^\d+(\.\d+){0,2}$/, 'must look like 1.2.3'),
       country: z.string().regex(/^[A-Z]{2}$/, 'must be an ISO country code like DE').nullable(),
       linked: z.boolean(),
+      signIn: z.enum(SIGN_IN_METHODS).optional(),
+      osVersion: z.string().regex(/^\d+(\.\d+){0,2}$/, 'must look like 14 or 17.2').nullable().optional(),
+      // null or missing: no personalization consent
+      traits: personalTraitsFormat.nullable().optional(),
     }),
   ]),
 });

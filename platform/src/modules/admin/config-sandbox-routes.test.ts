@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { adminRequests, createTestAdmin } from '../../../test/admin.js';
 import { buildAdminApp } from '../../admin-app.js';
 import { db, pool } from '../../core/db.js';
-import { authIdentities, installations, users } from '../identity/schema.js';
+import { activityDays, authIdentities, consents, installations, users } from '../identity/schema.js';
 
 let server: FastifyInstance;
 const { signIn, authed } = adminRequests(() => server);
@@ -113,6 +113,64 @@ describe('config sandbox', () => {
     expect(goal(drafted)?.value).toBe(40);
 
     expect((await authed('POST', url, token, { config: 'live', user: { ...user, country: 'Germany' } })).statusCode).toBe(400);
+  });
+
+  it('uses built-in traits only with personalization consent', async () => {
+    const token = await signIn(await createTestAdmin());
+    const app = await createApp(token);
+    const url = `/apps/${app.slug}/config/sandbox`;
+    const { userId, installationId } = await createUser(app.id, 'DE');
+    await db.insert(activityDays).values({
+      appId: app.id,
+      day: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+      installationId,
+      platform: 'android',
+    });
+    const body = { config: 'live', user: { kind: 'id', userId } };
+
+    const before = (await authed('POST', url, token, body)).json();
+    expect(before.context).toMatchObject({ osVersion: '15', providers: [], traits: null });
+
+    await db.insert(consents).values({
+      appId: app.id,
+      userId,
+      installationId,
+      purpose: 'personalization',
+      granted: true,
+      policyVersion: '1',
+      region: '*',
+      source: 'first_launch',
+    });
+    const after = (await authed('POST', url, token, body)).json();
+    expect(after.context.traits).toMatchObject({ daysSinceInstall: 0, streakDays: 2, subscription: 'none', hasPurchased: false });
+  });
+
+  it('takes the traits of a described user', async () => {
+    const token = await signIn(await createTestAdmin());
+    const app = await createApp(token);
+    const traits = {
+      daysSinceInstall: 40,
+      daysSinceLastVisit: 20,
+      activeDays7: 1,
+      activeDays28: 2,
+      streakDays: 1,
+      engagement: 'returning',
+      subscription: 'expired',
+      entitlements: [],
+      hasPurchased: true,
+      daysSinceSubscriptionEnded: 9,
+      language: 'de',
+      notificationsEnabled: null,
+      lowMemoryDevice: null,
+      localHour: 20,
+      installSource: null,
+    };
+    const user = { kind: 'manual', platform: 'android', appVersion: '1.4.0', country: 'DE', linked: false, signIn: 'google', traits };
+    const res = (await authed('POST', `/apps/${app.slug}/config/sandbox`, token, { config: 'live', user })).json();
+    expect(res.context).toMatchObject({ providers: ['google'], linked: true, traits: { engagement: 'returning' } });
+
+    const wrong = { ...user, traits: { ...traits, engagement: 'sleepy' } };
+    expect((await authed('POST', `/apps/${app.slug}/config/sandbox`, token, { config: 'live', user: wrong })).statusCode).toBe(400);
   });
 
   it('lets viewers use the sandbox', async () => {

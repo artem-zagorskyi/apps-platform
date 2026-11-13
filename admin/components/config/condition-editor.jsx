@@ -3,10 +3,24 @@
 import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu';
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu';
 import { cn } from '@/lib/utils';
 
 const PLATFORMS = ['android', 'ios'];
+
+// Sections of the "+ condition" menu
+const GROUPS = [
+  { key: 'user', label: 'User' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'purchases', label: 'Purchases' },
+  { key: 'device', label: 'Device' },
+];
+
+// Why a condition may not match some people
+const NEEDS = {
+  personalization: 'Only for people who allowed personalization (P)',
+  personalization_analytics: 'Only for people who allowed personalization and analytics (P+A)',
+};
 
 // Default value of a newly added condition
 function initial(field) {
@@ -20,6 +34,12 @@ function initial(field) {
     case 'boolean':
       return true;
     case 'user_ids':
+      return [];
+    case 'range':
+      return { min: field.bounds?.min ?? 0 };
+    case 'choice':
+      return [field.options[0]];
+    case 'tags':
       return [];
     default:
       return undefined;
@@ -39,6 +59,13 @@ export function conditionSummary(field, value) {
       return `${field.label} is ${value ? 'yes' : 'no'}`;
     case 'user_ids':
       return `${value.length} user ID${value.length === 1 ? '' : 's'}`;
+    case 'range':
+      if (value.min !== undefined && value.max !== undefined) return `${field.label} ${value.min}–${value.max}`;
+      return value.min !== undefined ? `${field.label} ≥ ${value.min}` : `${field.label} ≤ ${value.max}`;
+    case 'choice':
+      return `${field.label} is ${value.join(' or ')}`;
+    case 'tags':
+      return value.length ? `${field.label}: ${value.join(', ')}` : `${field.label}: …`;
     default:
       return field.label;
   }
@@ -115,6 +142,74 @@ function FieldInput({ field, value, onChange, disabled }) {
           ))}
         </span>
       );
+    case 'range': {
+      // An empty box removes that bound
+      const bound = (key, text) => {
+        const next = { ...value };
+        if (text.trim() === '') delete next[key];
+        else if (/^\d+$/.test(text.trim())) next[key] = Number(text);
+        else return;
+        onChange(next);
+      };
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          from
+          <Input mono value={value.min ?? ''} disabled={disabled} className="h-7 w-16" placeholder="any" onChange={(event) => bound('min', event.target.value)} />
+          to
+          <Input mono value={value.max ?? ''} disabled={disabled} className="h-7 w-16" placeholder="any" onChange={(event) => bound('max', event.target.value)} />
+          {field.bounds && (
+            <span>
+              ({field.bounds.min}–{field.bounds.max}
+              {field.key === 'local_hour' && ', 22 to 6 goes over midnight'})
+            </span>
+          )}
+        </span>
+      );
+    }
+    case 'choice':
+      return (
+        <span className="inline-flex flex-wrap gap-1">
+          {field.options.map((option) => {
+            const on = value.includes(option);
+            return (
+              <button
+                key={option}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  const next = on ? value.filter((item) => item !== option) : [...value, option];
+                  if (next.length > 0) onChange(next);
+                }}
+                className={cn(
+                  'h-6 rounded-[0.3125rem] border px-2 font-mono text-xs',
+                  on ? 'border-primary bg-primary-soft text-primary-soft-foreground' : 'border-border text-muted-foreground',
+                )}
+              >
+                {option}
+              </button>
+            );
+          })}
+        </span>
+      );
+    case 'tags':
+      return (
+        <Input
+          mono
+          value={text}
+          disabled={disabled}
+          placeholder={field.key === 'languages' ? 'de, en' : field.key === 'entitlements' ? 'premium' : 'any of, comma separated'}
+          className="h-7 w-48"
+          onChange={(event) => {
+            setText(event.target.value);
+            onChange(
+              event.target.value
+                .split(/[\s,]+/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            );
+          }}
+        />
+      );
     case 'user_ids':
       return (
         <textarea
@@ -188,18 +283,33 @@ export function ConditionEditor({ fields, condition, onChange, disabled }) {
             <Plus className="size-3" />
             condition
           </MenuTrigger>
-          <MenuContent>
-            {free.map((field) => (
-              <MenuItem
-                key={field.key}
-                onClick={() => {
-                  set(field.key, initial(field));
-                  setOpen(field.key);
-                }}
-              >
-                {field.label}
-              </MenuItem>
-            ))}
+          <MenuContent className="max-h-[22rem] overflow-y-auto">
+            {GROUPS.map((group, index) => {
+              const items = free.filter((field) => (field.group ?? 'user') === group.key);
+              if (items.length === 0) return null;
+              return (
+                <span key={group.key}>
+                  {index > 0 && <MenuSeparator />}
+                  <span className="block px-2 pb-0.5 pt-1 text-[0.6875rem] font-medium text-muted-foreground">{group.label}</span>
+                  {items.map((field) => (
+                    <MenuItem
+                      key={field.key}
+                      title={NEEDS[field.needs]}
+                      onClick={() => {
+                        set(field.key, initial(field));
+                        setOpen(field.key);
+                      }}
+                    >
+                      {field.label}
+                      {field.needs && <span className="ml-auto pl-3 text-[0.6875rem] text-muted-foreground">{field.needs === 'personalization' ? 'P' : 'P+A'}</span>}
+                    </MenuItem>
+                  ))}
+                </span>
+              );
+            })}
+            <span className="block border-t border-border px-2 pb-1 pt-1.5 text-[0.6875rem] text-muted-foreground">
+              P: only with personalization consent · P+A: also analytics
+            </span>
           </MenuContent>
         </Menu>
       )}

@@ -202,17 +202,22 @@ export async function recordConsent(
   return getConsentState(auth, log);
 }
 
-// Whether analytics events of this user may be stored: the latest decision,
-// or the policy default when the person never decided. A grant under an
-// older policy version still counts until the person answers again.
-export async function isAnalyticsAllowed(appId: string, userId: string): Promise<boolean> {
+// Whether the user allows a purpose: the latest decision, or the policy
+// default when the person never decided. A grant under an older policy
+// version still counts until the person answers again.
+export async function isPurposeAllowed(appId: string, userId: string, purpose: ConsentPurpose): Promise<boolean> {
   const { policy } = await getConsentPolicy(appId, null);
   const [latest] = await db
     .select({ granted: consents.granted })
     .from(consents)
-    .where(and(eq(consents.userId, userId), eq(consents.purpose, 'analytics')))
+    .where(and(eq(consents.userId, userId), eq(consents.purpose, purpose)))
     .orderBy(desc(consents.createdAt), desc(consents.id))
     .limit(1);
 
   return latest ? latest.granted : policy.mode === 'none';
+}
+
+// Whether analytics events of this user may be stored
+export async function isAnalyticsAllowed(appId: string, userId: string): Promise<boolean> {
+  return isPurposeAllowed(appId, userId, 'analytics');
 }

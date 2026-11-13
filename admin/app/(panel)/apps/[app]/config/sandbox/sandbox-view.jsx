@@ -3,6 +3,7 @@
 import { CircleAlert, LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { conditionSummary } from '@/components/config/condition-editor';
+import { SAMPLE_TRAITS, TraitInputs, TraitList } from '@/components/config/traits';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VERSION = /^\d+(\.\d+){0,2}$/;
 const COUNTRY = /^[A-Z]{2}$/;
+const OS_VERSION = /^\d+(\.\d+){0,2}$/;
 const PLATFORM_LABELS = { android: 'Android', ios: 'iOS' };
 
 const BADGE = {
@@ -109,7 +111,11 @@ export function SandboxView({ overview, explain }) {
   const [platform, setPlatform] = useState('android');
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [country, setCountry] = useState('DE');
-  const [linked, setLinked] = useState(false);
+  const [signIn, setSignIn] = useState('anonymous');
+  const [osVersion, setOsVersion] = useState('14');
+  const [personalization, setPersonalization] = useState(false);
+  const [traits, setTraits] = useState(SAMPLE_TRAITS);
+  const [showTraits, setShowTraits] = useState(false);
   const [config, setConfig] = useState(live || !draft ? 'live' : 'draft');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -127,10 +133,24 @@ export function SandboxView({ overview, explain }) {
     if (!VERSION.test(appVersion.trim())) return { hint: 'App version must look like 1.2.3' };
     const code = country.trim().toUpperCase();
     if (code && !COUNTRY.test(code)) return { hint: 'Country is a two-letter code like DE, or empty for unknown' };
+    const os = osVersion.trim();
+    if (os && !OS_VERSION.test(os)) return { hint: 'OS version must look like 14 or 17.2, or empty for unknown' };
     return {
-      body: { config, user: { kind: 'manual', platform, appVersion: appVersion.trim(), country: code || null, linked } },
+      body: {
+        config,
+        user: {
+          kind: 'manual',
+          platform,
+          appVersion: appVersion.trim(),
+          country: code || null,
+          linked: signIn !== 'anonymous',
+          signIn,
+          osVersion: os || null,
+          traits: personalization ? traits : null,
+        },
+      },
     };
-  }, [mode, userId, installationId, platform, appVersion, country, linked, config]);
+  }, [mode, userId, installationId, platform, appVersion, country, signIn, osVersion, personalization, traits, config]);
 
   const key = request.body ? JSON.stringify(request.body) : null;
   useEffect(() => {
@@ -176,10 +196,11 @@ export function SandboxView({ overview, explain }) {
   const label = shown
     ? [
         shown.user && `${shown.user.id.slice(0, 8)}…`,
-        PLATFORM_LABELS[shown.context.platform] ?? shown.context.platform,
+        `${PLATFORM_LABELS[shown.context.platform] ?? shown.context.platform}${shown.context.osVersion ? ` ${shown.context.osVersion}` : ''}`,
         shown.context.appVersion,
         shown.context.country ?? 'country unknown',
         shown.context.linked && 'linked',
+        !shown.context.traits && 'no personalization',
         shown.config.kind === 'live' ? `v${shown.config.version}` : 'draft',
       ]
         .filter(Boolean)
@@ -233,8 +254,29 @@ export function SandboxView({ overview, explain }) {
                   found && <span>Found: {installationLabel(found)}</span>
                 )}
                 <span>
+                  {shown.context.traits ? 'Allowed personalization' : 'No personalization consent: trait conditions never match'}
+                </span>
+                {shown.context.traits && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowTraits(!showTraits)}
+                      className="self-start text-xs font-medium text-primary-soft-foreground hover:underline"
+                    >
+                      {showTraits ? 'Hide traits' : 'Show traits'}
+                    </button>
+                    {showTraits && (
+                      <div className="rounded-md border border-border px-2.5 py-2">
+                        <TraitList traits={shown.context.traits} />
+                      </div>
+                    )}
+                  </>
+                )}
+                <span>
                   {[
-                    shown.context.country ? `${shown.context.country}${found?.city ? `, ${found.city}` : ''}` : 'country unknown',
+                    shown.context.country
+                      ? `last seen in ${shown.context.country}${found?.city ? `, ${found.city}` : ''} (the app is placed by its current IP)`
+                      : 'country unknown',
                     shown.user.linked.length
                       ? `${shown.user.linked.map((p) => p[0].toUpperCase() + p.slice(1)).join(', ')} linked`
                       : 'no linked account',
@@ -266,10 +308,32 @@ export function SandboxView({ overview, explain }) {
                 placeholder="DE"
               />
             </Field>
+            <Field label="Signed in with">
+              <Segmented
+                fill
+                value={signIn}
+                onValueChange={setSignIn}
+                options={[
+                  { value: 'anonymous', label: 'Anonymous' },
+                  { value: 'google', label: 'Google' },
+                  { value: 'apple', label: 'Apple' },
+                ]}
+              />
+            </Field>
+            <Field label="OS version" description="Empty means unknown">
+              <Input mono value={osVersion} onChange={(event) => setOsVersion(event.target.value)} placeholder="14" />
+            </Field>
             <label className="flex items-center justify-between text-[0.8125rem]">
-              Linked account
-              <Switch checked={linked} onCheckedChange={setLinked} />
+              Allowed personalization
+              <Switch checked={personalization} onCheckedChange={setPersonalization} />
             </label>
+            {personalization ? (
+              <div className="rounded-md border border-border px-2.5 py-2.5">
+                <TraitInputs value={traits} onChange={setTraits} />
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">Without it, conditions on activity, purchases and the device never match.</span>
+            )}
             <span className="text-xs text-muted-foreground">
               Without a user ID nobody can be placed in experiments or the holdout; rules still apply.
             </span>

@@ -140,10 +140,18 @@ export function documentErrors(document: ConfigDocument, schema: ParameterSchema
 
   const checkVersions = (
     path: string,
-    c: { min_app_version?: string | undefined; max_app_version?: string | undefined },
+    c: {
+      min_app_version?: string | undefined;
+      max_app_version?: string | undefined;
+      min_os_version?: string | undefined;
+      max_os_version?: string | undefined;
+    },
   ) => {
     if (c.min_app_version && c.max_app_version && compareVersions(c.min_app_version, c.max_app_version) > 0) {
       errors.push(`${path}: min_app_version is above max_app_version`);
+    }
+    if (c.min_os_version && c.max_os_version && compareVersions(c.min_os_version, c.max_os_version) > 0) {
+      errors.push(`${path}: min_os_version is above max_os_version`);
     }
   };
 

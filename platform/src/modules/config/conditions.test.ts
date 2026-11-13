@@ -32,7 +32,8 @@ describe('condition fields', () => {
 
   it('describes the fields for the admin editors', () => {
     const fields = describeConditionFields();
-    expect(fields.rules.map((f) => f.key)).toEqual(['platforms', 'min_app_version', 'max_app_version', 'countries', 'linked', 'user_ids']);
-    expect(fields.targeting.at(-1)).toEqual({ key: 'new_users_only', label: 'New users only', kind: 'boolean' });
+    expect(fields.rules.map((f) => f.key).slice(0, 5)).toEqual(['platforms', 'min_app_version', 'max_app_version', 'countries', 'linked']);
+    expect(fields.rules.at(-1)?.key).toBe('user_ids');
+    expect(fields.targeting.at(-1)).toEqual({ key: 'new_users_only', label: 'New users only', kind: 'boolean', group: 'user' });
   });
 });

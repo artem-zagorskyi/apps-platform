@@ -2,8 +2,16 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '../../core/db.js';
 import { AppError } from '../../core/errors.js';
 import type { Platform } from '../apps/schema.js';
+import { z } from 'zod';
 import { authIdentities, installations, users } from '../identity/schema.js';
-import type { EvaluationContext } from './conditions.js';
+import { loadTraitContext } from '../traits/builtin.js';
+import {
+  ENGAGEMENT_LEVELS,
+  type EvaluationContext,
+  type PersonalTraits,
+  SIGN_IN_METHODS,
+  SUBSCRIPTION_STATUSES,
+} from './conditions.js';
 import type { ConfigDocument } from './document.js';
 import { explainConfig } from './evaluate.js';
 import { configDrafts } from './schema.js';
@@ -12,11 +20,42 @@ import { getConfigVersion } from './versions-service.js';
 // Admin sandbox: which config a user gets from the live version or the draft,
 // and why. Reads only; nothing reaches the user.
 
+const days = z.number().int().min(0).max(3650);
+
+// Traits of a user described by hand
+export const personalTraitsFormat: z.ZodType<PersonalTraits> = z.strictObject({
+  daysSinceInstall: days,
+  daysSinceLastVisit: days.nullable(),
+  activeDays7: z.number().int().min(0).max(7),
+  activeDays28: z.number().int().min(0).max(28),
+  streakDays: days,
+  engagement: z.enum(ENGAGEMENT_LEVELS),
+  subscription: z.enum(SUBSCRIPTION_STATUSES),
+  entitlements: z.array(z.string().min(1).max(64)).max(20),
+  hasPurchased: z.boolean(),
+  daysSinceSubscriptionEnded: days.nullable(),
+  language: z.string().regex(/^[a-z]{2}$/).nullable(),
+  notificationsEnabled: z.boolean().nullable(),
+  lowMemoryDevice: z.boolean().nullable(),
+  localHour: z.number().int().min(0).max(23).nullable(),
+  installSource: z.string().min(1).max(100).nullable(),
+});
+
 export type SandboxUser =
   // A real user: everything else is read from their latest installation
   | { kind: 'id'; userId: string; installationId?: string }
-  // A user described by hand: no ID, so no holdout and no experiments
-  | { kind: 'manual'; platform: Platform; appVersion: string; country: string | null; linked: boolean };
+  // A user described by hand: no ID, so no holdout and no experiments.
+  // traits null: no personalization consent.
+  | {
+      kind: 'manual';
+      platform: Platform;
+      appVersion: string;
+      country: string | null;
+      linked: boolean;
+      signIn?: (typeof SIGN_IN_METHODS)[number];
+      osVersion?: string | null;
+      traits?: PersonalTraits | null;
+    };
 
 // Merges chain at most this deep; a longer chain means broken data
 const MAX_MERGE_HOPS = 5;
@@ -79,14 +118,24 @@ async function describeUser(appId: string, who: Extract<SandboxUser, { kind: 'id
   const installation = found.find((item) => item.id === who.installationId) ?? found[0]!;
   const providers = linked.map((row) => row.provider).sort();
 
+  const { osVersion, traits } = await loadTraitContext({
+    appId,
+    userId: user.id,
+    installationId: installation.id,
+    createdAt: user.createdAt,
+  });
   const ctx: EvaluationContext = {
     appId,
     userId: user.id,
     platform: installation.platform,
     appVersion: installation.appVersion,
+    // The phone is placed by the IP of each request; here the last known place
     country: installation.country,
     linked: providers.length > 0,
     userCreatedAt: user.createdAt,
+    osVersion,
+    providers,
+    traits,
   };
   return {
     ctx,
@@ -110,24 +159,42 @@ export async function explainForSandbox(appId: string, config: 'live' | 'draft',
     return {
       config: source,
       user,
-      context: { platform: ctx.platform, appVersion: ctx.appVersion, country: ctx.country, linked: ctx.linked },
+      context: contextSummary(ctx),
       explanation: explainConfig(active, ctx),
     };
   }
 
+  const providers = who.signIn && who.signIn !== 'anonymous' ? [who.signIn] : [];
   const ctx: EvaluationContext = {
     appId,
     userId: '',
     platform: who.platform,
     appVersion: who.appVersion,
     country: who.country,
-    linked: who.linked,
+    linked: who.linked || providers.length > 0,
     userCreatedAt: now,
+    osVersion: who.osVersion ?? null,
+    providers,
+    traits: who.traits ?? null,
   };
   return {
     config: source,
     user: null,
-    context: { platform: ctx.platform, appVersion: ctx.appVersion, country: ctx.country, linked: ctx.linked },
+    context: contextSummary(ctx),
     explanation: explainConfig(active, ctx, { bucketing: false }),
+  };
+}
+
+// What the explanation was computed from, for the admin panel
+function contextSummary(ctx: EvaluationContext) {
+  return {
+    platform: ctx.platform,
+    appVersion: ctx.appVersion,
+    country: ctx.country,
+    linked: ctx.linked,
+    osVersion: ctx.osVersion ?? null,
+    providers: ctx.providers ?? [],
+    // null: no personalization consent
+    traits: ctx.traits ?? null,
   };
 }

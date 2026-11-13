@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { countryOf } from '../../core/geoip.js';
 import { authOf, requireAuth } from '../identity/auth.js';
 import { getMe } from '../identity/service.js';
+import { loadTraitContext } from '../traits/builtin.js';
 import { canonicalJson } from './document.js';
 import { evaluateConfig } from './evaluate.js';
 import { getActiveConfig } from './versions-service.js';
@@ -49,14 +50,24 @@ export const configRoutes: FastifyPluginAsyncZod = async (app) => {
       // Also refuses users who are no longer active
       const me = await getMe(auth);
 
-      const result = evaluateConfig(await getActiveConfig(auth.appId), {
+      const userCreatedAt = new Date(me.createdAt);
+      // OS version always; behaviour and purchases only with personalization consent
+      const [active, { osVersion, traits }] = await Promise.all([
+        getActiveConfig(auth.appId),
+        loadTraitContext({ appId: auth.appId, userId: auth.userId, installationId: auth.installationId, createdAt: userCreatedAt }),
+      ]);
+
+      const result = evaluateConfig(active, {
         appId: auth.appId,
         userId: auth.userId,
         platform: auth.platform,
         appVersion: request.query.appVersion,
         country: countryOf(request.ip),
         linked: me.providers.length > 0,
-        userCreatedAt: new Date(me.createdAt),
+        userCreatedAt,
+        osVersion,
+        providers: me.providers.map((item) => item.provider),
+        traits,
       });
 
       // Same values for the user -> same tag -> 304 without a body
